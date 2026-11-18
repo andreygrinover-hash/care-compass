@@ -1,0 +1,2545 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>Компас заботы</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{
+    --bg:#f4f6fb; --card:#ffffff; --text:#1f2937; --muted:#6b7280; --border:#e2e8f0;
+    --primary:#2563eb; --primary-2:#1d4ed8; --primary-fg:#ffffff;
+    --danger:#dc2626; --warn:#d97706; --ok:#16a34a;
+    --ok-bg:#dcfce7; --warn-bg:#fef3c7; --high-bg:#ffedd5; --crit-bg:#fee2e2;
+    --radius:14px; --shadow:0 1px 3px rgba(15,23,42,.08),0 1px 2px rgba(15,23,42,.04);
+  }
+  html[data-theme="dark"]{
+    --bg:#0f172a; --card:#1e293b; --text:#e2e8f0; --muted:#94a3b8; --border:#334155;
+    --primary:#3b82f6; --primary-2:#2563eb; --primary-fg:#ffffff;
+    --danger:#f87171; --warn:#fbbf24; --ok:#4ade80;
+    --ok-bg:#14532d; --warn-bg:#78350f; --high-bg:#7c2d12; --crit-bg:#7f1d1d;
+    --shadow:0 1px 3px rgba(0,0,0,.5);
+  }
+  html{font-size:16px}
+  body{
+    margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif;
+    background:var(--bg);color:var(--text);font-size:1rem;line-height:1.45;
+    transition:background .2s,color .2s;padding-bottom:48px;
+  }
+  body.no-scroll{overflow:hidden}
+  h1,h2,h3{margin:0;font-weight:650}
+  h1{font-size:1.15rem;letter-spacing:.2px}
+  h2{font-size:1.02rem}
+  h3{font-size:1rem}
+  .top-bar{position:sticky;top:0;z-index:30;background:var(--card);box-shadow:var(--shadow);border-bottom:1px solid var(--border)}
+  .app-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px 6px}
+  .brand{display:flex;align-items:center;gap:8px;min-width:0}
+  .brand .logo{font-size:1.25rem}
+  .brand h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .header-actions{display:flex;gap:4px;flex-shrink:0}
+  .icon-btn{
+    border:1px solid var(--border);background:var(--card);color:var(--text);
+    border-radius:10px;width:36px;height:36px;font-size:1rem;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;transition:.15s;
+    flex-shrink:0;
+  }
+  .icon-btn:hover{border-color:var(--primary);color:var(--primary)}
+  .icon-btn:active{transform:scale(.94)}
+  .icon-btn.small-text{font-size:.78rem;font-weight:700;width:38px}
+  .icon-btn.del{width:30px;height:30px;font-size:.8rem;border-color:transparent;opacity:.6}
+  .icon-btn.del:hover{opacity:1;color:var(--danger);border-color:var(--danger)}
+  .patient-bar{display:flex;align-items:center;gap:6px;padding:0 12px 8px}
+  .patient-label{font-size:.8rem;color:var(--muted);flex-shrink:0}
+  #patientSelect{
+    flex:1;min-width:0;padding:7px 10px;border-radius:10px;border:1px solid var(--border);
+    background:var(--bg);color:var(--text);font-size:.92rem;font-family:inherit;
+  }
+  .tabs{
+    display:flex;gap:6px;overflow-x:auto;padding:0 10px 8px;scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{
+    display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;
+    border:1px solid transparent;background:transparent;color:var(--muted);
+    font-size:.86rem;font-family:inherit;cursor:pointer;white-space:nowrap;transition:.15s;font-weight:500;
+  }
+  .tab:hover{color:var(--text);background:var(--bg)}
+  .tab.active{background:var(--primary);color:var(--primary-fg);box-shadow:var(--shadow)}
+  .tab .tab-icon{font-size:.95rem}
+  .tab.config{margin-left:auto;border:1px dashed var(--border);color:var(--muted)}
+  .tab.config:hover{border-color:var(--primary);color:var(--primary)}
+  .view{max-width:900px;margin:0 auto;padding:14px 12px 40px;display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .muted{color:var(--muted);font-size:.82rem}
+  .event-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+  .event-btn{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    padding:12px 6px;border-radius:12px;border:1px solid var(--border);background:var(--bg);
+    color:var(--text);font-size:.8rem;font-family:inherit;cursor:pointer;transition:.15s;
+    font-weight:500;text-align:center;line-height:1.2;min-height:74px;
+  }
+  .event-btn:hover{border-color:var(--primary);color:var(--primary);transform:translateY(-1px)}
+  .event-btn:active{transform:scale(.97)}
+  .event-btn.value{border-style:dashed}
+  .ev-icon{font-size:1.3rem;line-height:1}
+  .list{display:flex;flex-direction:column;gap:2px}
+  .row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:none}
+  .row-icon{font-size:1.1rem;width:24px;text-align:center;flex-shrink:0}
+  .row-main{flex:1;min-width:0}
+  .row-title{font-size:.9rem;font-weight:550;overflow:hidden;text-overflow:ellipsis}
+  .row-sub{font-size:.76rem;color:var(--muted)}
+  .row-val{font-weight:700;color:var(--primary)}
+  .empty{color:var(--muted);font-size:.85rem;text-align:center;padding:18px 6px}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;font-size:.85rem;color:var(--muted)}
+  .field span{font-weight:600}
+  .field input,.field select,.field textarea{
+    padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);
+    color:var(--text);font-size:.95rem;font-family:inherit;width:100%;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--primary);outline-offset:-1px}
+  .form-row{display:flex;gap:10px;flex-wrap:wrap}
+  .form-row .field{flex:1;min-width:96px}
+  .btn{
+    padding:10px 16px;border-radius:10px;border:1px solid var(--border);background:var(--card);
+    color:var(--text);font-family:inherit;font-size:.9rem;font-weight:600;cursor:pointer;transition:.15s;
+  }
+  .btn:hover{border-color:var(--primary);color:var(--primary)}
+  .btn.primary{background:var(--primary);border-color:var(--primary);color:var(--primary-fg)}
+  .btn.primary:hover{background:var(--primary-2);color:#fff}
+  .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+  .btn.danger:hover{filter:brightness(.93);color:#fff}
+  .btn.sm{padding:7px 12px;font-size:.82rem}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap}
+  .inline-select{
+    padding:6px 10px;border-radius:9px;border:1px solid var(--border);background:var(--bg);
+    color:var(--text);font-family:inherit;font-size:.85rem;
+  }
+  .alert{padding:11px 14px;border-radius:11px;font-size:.86rem;margin-bottom:12px;border:1px solid transparent;font-weight:500}
+  .alert.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+  .alert.crit{background:var(--crit-bg);color:var(--danger);border-color:var(--danger)}
+  .alert.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.75rem;font-weight:700}
+  .badge.ok{background:var(--ok-bg);color:var(--ok)}
+  .badge.warn{background:var(--warn-bg);color:var(--warn)}
+  .badge.high{background:var(--high-bg);color:var(--warn)}
+  .badge.crit{background:var(--crit-bg);color:var(--danger)}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+  .stat{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:11px 12px}
+  .stat .stat-label{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+  .stat .stat-value{font-size:1.22rem;font-weight:700;margin-top:3px}
+  .stat .stat-sub{font-size:.75rem;color:var(--muted);margin-top:2px}
+  .chart{width:100%;height:auto;display:block;color:var(--text);margin-top:6px}
+  .chart-wrap{margin-top:8px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin-top:6px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+  .modal-root{position:fixed;inset:0;z-index:100;display:none}
+  .modal-root.open{display:block}
+  .backdrop{position:absolute;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px)}
+  .modal{
+    background:var(--card);color:var(--text);border-radius:16px;padding:18px;width:100%;max-width:440px;
+    max-height:86vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,.35);animation:pop .16s ease-out;
+  }
+  @keyframes pop{from{transform:scale(.96);opacity:.6}to{transform:scale(1);opacity:1}}
+  .modal h3{margin-bottom:12px}
+  .modal-body{font-size:.9rem;line-height:1.55;white-space:pre-wrap}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+  .modal-actions.col{flex-direction:column}
+  .modal-actions.col .btn{width:100%}
+  .checkbox-list{display:flex;flex-direction:column;gap:4px;max-height:50vh;overflow-y:auto}
+  .check{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:9px;cursor:pointer;font-size:.9rem}
+  .check:hover{background:var(--bg)}
+  .check input{width:18px;height:18px;accent-color:var(--primary);cursor:pointer}
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:#111827;color:#fff;
+    padding:11px 18px;border-radius:11px;opacity:0;pointer-events:none;transition:.25s;z-index:2000;
+    font-size:.87rem;max-width:90vw;text-align:center;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.3)
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast.error{background:var(--danger)}
+  .toast.ok{background:var(--ok)}
+  pre.report{
+    white-space:pre-wrap;word-wrap:break-word;font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:.82rem;line-height:1.55;background:var(--bg);border:1px solid var(--border);
+    border-radius:12px;padding:14px;margin:0;max-height:60vh;overflow:auto;color:var(--text)
+  }
+  .report-doc{font-size:.95rem}
+  @media screen{ .report-doc{max-height:70vh;overflow:auto} }
+  .report-doc h3.rep-title{margin:0 0 4px;font-size:1.2em}
+  .report-doc h4{margin:16px 0 6px;font-size:1em}
+  .rep-meta{color:var(--muted);margin:0 0 4px;font-size:.9em}
+  .rep-flags{list-style:none;margin:0;padding:0}
+  .rep-flags li{margin:5px 0;line-height:1.45}
+  .flag-crit{color:var(--danger);font-weight:600}
+  .flag-warn{color:var(--warn)}
+  .flag-ok{color:var(--ok)}
+  .rep-note{margin:8px 0;padding:8px 10px;background:var(--bg);border-radius:8px}
+  .rep-table{width:100%;border-collapse:collapse;margin:6px 0 10px;font-size:.93em}
+  .rep-table th,.rep-table td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+  .rep-table th{color:var(--muted);font-weight:600;font-size:.9em}
+  .rep-crit td{color:var(--danger);font-weight:600}
+  .rep-warn td{color:var(--warn)}
+  .rep-empty{color:var(--muted);font-style:italic;margin:4px 0}
+  .rep-list{margin:4px 0;padding-left:18px}
+  .rep-list.rep-days{list-style:none;padding-left:0}
+  .rep-footer{color:var(--muted);font-size:.85em;margin-top:14px;border-top:1px solid var(--border);padding-top:8px}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+  .backup-banner{margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .snap-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:.95em}
+  .snap-row:last-of-type{border-bottom:none}
+  .danger-title{color:var(--danger)}
+  .slot-head{display:flex;align-items:center;gap:8px;font-size:.8rem;font-weight:700;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
+  .slot-head:first-child{margin-top:0}
+  .med-row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:7px;background:var(--bg)}
+  .med-row.taken{border-color:var(--ok);background:var(--ok-bg)}
+  .med-info{flex:1;min-width:0}
+  .med-name{font-weight:600;font-size:.9rem}
+  .med-dose{font-size:.78rem;color:var(--muted)}
+  .med-actions{display:flex;gap:5px;flex-shrink:0}
+  .sep{height:1px;background:var(--border);margin:14px 0}
+  @media (max-width:520px){
+    .brand h1{font-size:1rem}
+    .tab{padding:7px 10px;font-size:.8rem}
+    .tab .tab-label{display:none}
+    .tab.active .tab-label{display:inline}
+    .view{padding:12px 8px 40px}
+  }
+  @media print{
+    .top-bar,.no-print,.toast,.modal-root{display:none !important}
+    body{background:#fff;color:#000;padding:0}
+    .view{padding:0;max-width:none}
+    .card{box-shadow:none;border:none;padding:0}
+    pre.report{max-height:none;border:none;background:#fff;font-size:11pt}
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">🧭</span>
+      <h1>Компас заботы</h1>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="btnHelp" title="Руководство" aria-label="Руководство">❓</button>
+      <button class="icon-btn" id="btnTheme" title="Переключить тему" aria-label="Тема">🌙</button>
+      <button class="icon-btn small-text" id="btnFontMinus" title="Уменьшить шрифт">A−</button>
+      <button class="icon-btn small-text" id="btnFontPlus" title="Увеличить шрифт">A+</button>
+      <button class="icon-btn" id="btnTabsConfig" title="Настроить вкладки">📋</button>
+    </div>
+  </header>
+  <div class="patient-bar">
+    <label class="patient-label" for="patientSelect">Пациент</label>
+    <select id="patientSelect"></select>
+    <button class="icon-btn" id="btnAddPatient" title="Добавить пациента">➕</button>
+    <button class="icon-btn" id="btnRenamePatient" title="Переименовать">✏️</button>
+    <button class="icon-btn" id="btnDeletePatient" title="Удалить">🗑️</button>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+</div>
+
+<main id="view" class="view"></main>
+
+<div id="modalRoot" class="modal-root"></div>
+<input type="file" id="fileJson" accept=".json,application/json" hidden>
+<input type="file" id="fileCsv" accept=".csv,text/csv" hidden>
+
+<script>
+'use strict';
+
+/* ============================ CONSTANTS ============================ */
+
+const STORE_KEY = 'kompas_care_v1';
+
+const TABS = [
+  { id:'events',   label:'События',    icon:'📋' },
+  { id:'pressure', label:'Давление',   icon:'❤️' },
+  { id:'sugar',    label:'Сахар',      icon:'🩸' },
+  { id:'meds',     label:'Лекарства',  icon:'💊' },
+  { id:'stats',    label:'Статистика', icon:'📊' },
+  { id:'report',   label:'Отчёт',      icon:'📄' },
+  { id:'data',     label:'Данные',     icon:'💾' }
+];
+
+const EVENT_BUTTONS = [
+  { type:'toilet',   label:'Туалет',          icon:'🚽' },
+  { type:'episode',  label:'Эпизод',          icon:'⚡' },
+  { type:'dry',      label:'Сухо',            icon:'🌵' },
+  { type:'wet',      label:'Мокро',           icon:'💧' },
+  { type:'activity', label:'Занятие',         icon:'🎨' },
+  { type:'sleep',    label:'Сон',             icon:'😴' },
+  { type:'good',     label:'Хорошо',          icon:'😊' },
+  { type:'bad',      label:'Плохо',           icon:'😟' },
+  { type:'refuse',   label:'Отказ от еды',    icon:'🍽️' },
+  { type:'headache', label:'Головная боль',   icon:'🤕' },
+  { type:'fall',     label:'Падение',         icon:'⚠️' },
+  { type:'temp',     label:'Температура',     icon:'🌡️', kind:'value', unit:'°C', step:0.1 },
+  { type:'weight',   label:'Вес',             icon:'⚖️', kind:'value', unit:'кг', step:0.1 }
+];
+
+const EVENT_MAP = Object.fromEntries(EVENT_BUTTONS.map(b => [b.type, b]));
+
+const SLOTS = [
+  { id:'morning',  label:'Утро',              icon:'🌅' },
+  { id:'day',      label:'День',              icon:'☀️' },
+  { id:'evening',  label:'Вечер',             icon:'🌇' },
+  { id:'night',    label:'Ночь',              icon:'🌙' },
+  { id:'asneeded', label:'По необходимости',  icon:'🩹' }
+];
+
+/* ============================ UTILS ============================ */
+
+function uid(){
+  return Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+}
+
+function pad2(n){ return String(n).padStart(2, '0'); }
+
+function todayKey(d){
+  d = d || new Date();
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+}
+
+function fmtDate(ts){
+  const d = new Date(ts);
+  return pad2(d.getDate()) + '.' + pad2(d.getMonth() + 1) + '.' + d.getFullYear();
+}
+
+function fmtDateTime(ts){
+  const d = new Date(ts);
+  return fmtDate(ts) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+
+function fmtNum(v){
+  const n = Math.round(v * 10) / 10;
+  return String(n);
+}
+
+function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+function avg(arr){
+  if (!arr.length) return 0;
+  return arr.reduce((s, x) => s + x, 0) / arr.length;
+}
+
+function escapeHtml(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+  ));
+}
+
+function periodStart(days){
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - (days - 1));
+  return d.getTime();
+}
+
+function csvEscape(v){
+  v = String(v == null ? '' : v);
+  if (/[",;\n]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+  return v;
+}
+
+function parseCSV(text){
+  const rows = [];
+  let cur = [], field = '', inQ = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (inQ){
+      if (c === '"'){
+        if (text[i + 1] === '"'){ field += '"'; i++; }
+        else inQ = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',' || c === ';'){ cur.push(field); field = ''; }
+      else if (c === '\n'){ cur.push(field); field = ''; rows.push(cur); cur = []; }
+      else if (c === '\r'){ /* skip */ }
+      else field += c;
+    }
+  }
+  if (field !== '' || cur.length){ cur.push(field); rows.push(cur); }
+  return rows.filter(r => r.length && r.some(x => String(x).trim() !== ''));
+}
+
+function download(filename, content, mime){
+  const blob = new Blob([content], { type: mime + ';charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+}
+
+function showToast(msg, type){
+  let t = document.getElementById('toast');
+  if (!t){
+    t = document.createElement('div');
+    t.id = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => { t.className = 'toast'; }, 3200);
+}
+
+/* ============================ STATE ============================ */
+
+function newPatient(name){
+  return {
+    id: uid(),
+    name: name || 'Пациент',
+    note: '',
+    events: [],
+    pressure: [],
+    sugar: [],
+    meds: [],
+    medLog: {},
+    settings: { hiddenTabs: [], hiddenEventButtons: [] }
+  };
+}
+
+function defaultState(){
+  const p = newPatient('Пациент 1');
+  return {
+    currentPatientId: p.id,
+    patients: { [p.id]: p },
+    ui: {
+      theme: 'light',
+      fontSize: 16,
+      activeTab: 'events',
+      statsPeriod: 7,
+      reportPeriod: 7,
+      pressurePeriod: 7,
+      sugarPeriod: 7
+    }
+  };
+}
+
+function normalizeState(s){
+  if (!s || typeof s !== 'object') return defaultState();
+  if (!s.patients || typeof s.patients !== 'object' || !Object.keys(s.patients).length) return defaultState();
+
+  s.ui = s.ui || {};
+  s.ui.theme = s.ui.theme === 'dark' ? 'dark' : 'light';
+  s.ui.fontSize = clamp(Number(s.ui.fontSize) || 16, 12, 24);
+  s.ui.activeTab = TABS.some(t => t.id === s.ui.activeTab) ? s.ui.activeTab : 'events';
+  s.ui.statsPeriod = [7, 30].includes(Number(s.ui.statsPeriod)) ? Number(s.ui.statsPeriod) : 7;
+  s.ui.reportPeriod = [7, 30].includes(Number(s.ui.reportPeriod)) ? Number(s.ui.reportPeriod) : 7;
+  s.ui.pressurePeriod = [7, 30].includes(Number(s.ui.pressurePeriod)) ? Number(s.ui.pressurePeriod) : 7;
+  s.ui.sugarPeriod = [7, 30].includes(Number(s.ui.sugarPeriod)) ? Number(s.ui.sugarPeriod) : 7;
+
+  for (const id of Object.keys(s.patients)){
+    const p = s.patients[id] || {};
+    p.id = id;
+    p.name = typeof p.name === 'string' && p.name.trim() ? p.name : 'Пациент';
+    p.note = typeof p.note === 'string' ? p.note : '';
+    p.events = Array.isArray(p.events) ? p.events : [];
+    p.pressure = Array.isArray(p.pressure) ? p.pressure : [];
+    p.sugar = Array.isArray(p.sugar) ? p.sugar : [];
+    p.meds = Array.isArray(p.meds) ? p.meds : [];
+    p.meds = p.meds.map(m => {
+      if (!Array.isArray(m.slots) || !m.slots.length){
+        m.slots = [m.slot || 'morning'];
+      }
+      if (!m.created) m.created = Date.now();
+      return m;
+    });
+    Object.keys(p.medLog).forEach(day => {
+      const dayLog = p.medLog[day];
+      const next = {};
+      Object.keys(dayLog).forEach(k => {
+        if (k.indexOf('|') === -1){
+          const med = p.meds.find(x => x.id === k);
+          next[med ? (med.slots[0] + '|' + k) : k] = dayLog[k];
+        } else next[k] = dayLog[k];
+      });
+      p.medLog[day] = next;
+    });
+    let gs = parseInt(p.goalSys, 10); if (isNaN(gs)) gs = 140; p.goalSys = Math.min(200, Math.max(90, gs));
+    let gd = parseInt(p.goalDia, 10); if (isNaN(gd)) gd = 90; p.goalDia = Math.min(120, Math.max(50, gd));
+    p.medLog = (p.medLog && typeof p.medLog === 'object') ? p.medLog : {};
+    p.settings = p.settings || {};
+    p.settings.hiddenTabs = Array.isArray(p.settings.hiddenTabs) ? p.settings.hiddenTabs : [];
+    p.settings.hiddenEventButtons = Array.isArray(p.settings.hiddenEventButtons) ? p.settings.hiddenEventButtons : [];
+    s.patients[id] = p;
+  }
+
+  if (!s.patients[s.currentPatientId]) s.currentPatientId = Object.keys(s.patients)[0];
+  return s;
+}
+
+function loadState(){
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return defaultState();
+    return normalizeState(JSON.parse(raw));
+  } catch (e){
+    console.warn('Не удалось загрузить состояние:', e);
+    return defaultState();
+  }
+}
+
+function save(){
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  } catch (e){
+    console.warn('Не удалось сохранить:', e);
+  }
+  dailySnapshot();
+}
+
+/* ---------- резервные снапшоты и напоминания ---------- */
+
+const SNAP_KEY = 'cc_snapshots';
+let snapDay = null;
+
+function dailySnapshot(){
+  const k = todayKey(new Date());
+  if (snapDay === k) return;
+  snapDay = k;
+  try {
+    const list = JSON.parse(localStorage.getItem(SNAP_KEY) || '[]');
+    const kept = list.filter(s => s.day !== k);
+    kept.push({ day: k, ts: Date.now(), state: state });
+    while (kept.length > 14) kept.shift();
+    localStorage.setItem(SNAP_KEY, JSON.stringify(kept));
+  } catch (e){}
+}
+
+function markExport(){
+  try { localStorage.setItem('cc_lastExport', String(Date.now())); } catch (e){}
+}
+
+function backupReminderHtml(){
+  if (state.ui.activeTab === 'data') return '';
+  const hasData = Object.values(state.patients).some(p =>
+    (p.events && p.events.length) || (p.pressure && p.pressure.length) ||
+    (p.sugar && p.sugar.length) || (p.medLog && Object.keys(p.medLog).length));
+  if (!hasData) return '';
+  const last = parseInt(localStorage.getItem('cc_lastExport'), 10);
+  if (!isNaN(last)){
+    const days = Math.floor((Date.now() - last) / 86400000);
+    if (days <= 7) return '';
+    return '<div class="alert warn backup-banner">💾 Резервная копия не делалась ' + days + ' дн. <button class="btn sm primary" data-action="goBackup">Сделать копию</button></div>';
+  }
+  return '<div class="alert warn backup-banner">💾 Резервная копия ещё не делалась. <button class="btn sm primary" data-action="goBackup">Сделать копию</button></div>';
+}
+
+let state = loadState();
+let medsEditMode = false;
+(function initSnapshots(){
+  try {
+    const list = JSON.parse(localStorage.getItem(SNAP_KEY) || '[]');
+    snapDay = list.length ? list[list.length - 1].day : null;
+  } catch (e){
+    snapDay = null;
+  }
+  dailySnapshot();
+})();
+
+function currentPatient(){
+  return state.patients[state.currentPatientId];
+}
+
+/* ============================ MODAL ============================ */
+
+const modalRoot = document.getElementById('modalRoot');
+let modalResolve = null;
+
+function openModal(html){
+  modalRoot.innerHTML = '<div class="backdrop"><div class="modal" role="dialog">' + html + '</div></div>';
+  modalRoot.classList.add('open');
+  document.body.classList.add('no-scroll');
+}
+
+function closeModal(){
+  modalRoot.classList.remove('open');
+  modalRoot.innerHTML = '';
+  document.body.classList.remove('no-scroll');
+}
+
+function resolveModal(val){
+  const r = modalResolve;
+  modalResolve = null;
+  closeModal();
+  if (r) r(val);
+}
+
+modalRoot.addEventListener('click', (e) => {
+  if (e.target.classList.contains('backdrop')){ resolveModal(false); return; }
+  if (e.target.closest('[data-modal-ok]')){ resolveModal(true); return; }
+  const ch = e.target.closest('[data-choice]');
+  if (ch){ resolveModal(ch.dataset.choice); return; }
+  if (e.target.closest('[data-modal-cancel]') || e.target.closest('[data-close]')){ resolveModal(false); }
+});
+
+function modalConfirm(message, opts){
+  opts = opts || {};
+  return new Promise((resolve) => {
+    modalResolve = resolve;
+    openModal(
+      '<div class="modal-body">' + escapeHtml(message) + '</div>' +
+      '<div class="modal-actions">' +
+        '<button class="btn" data-modal-cancel>' + escapeHtml(opts.cancelText || 'Отмена') + '</button>' +
+        '<button class="btn ' + (opts.danger ? 'danger' : 'primary') + '" data-modal-ok>' + escapeHtml(opts.okText || 'OK') + '</button>' +
+      '</div>'
+    );
+  });
+}
+
+function modalChoice(message, choices){
+  return new Promise((resolve) => {
+    modalResolve = resolve;
+    openModal(
+      '<div class="modal-body">' + escapeHtml(message) + '</div>' +
+      '<div class="modal-actions col">' +
+        choices.map((c, i) =>
+          '<button class="btn ' + (c.danger ? 'danger' : (i === 0 ? 'primary' : '')) + '" data-choice="' + escapeHtml(c.value) + '">' +
+            escapeHtml(c.label) +
+          '</button>'
+        ).join('') +
+        '<button class="btn" data-modal-cancel>Отмена</button>' +
+      '</div>'
+    );
+  });
+}
+
+/* ============================ HEADER / UI ============================ */
+
+function applyTheme(){
+  document.documentElement.dataset.theme = state.ui.theme;
+  const btn = document.getElementById('btnTheme');
+  if (btn) btn.textContent = state.ui.theme === 'dark' ? '☀️' : '🌙';
+}
+
+function applyFontSize(){
+  document.documentElement.style.fontSize = state.ui.fontSize + 'px';
+}
+
+function renderPatients(){
+  const sel = document.getElementById('patientSelect');
+  sel.innerHTML = Object.values(state.patients)
+    .map(p => '<option value="' + p.id + '"' + (p.id === state.currentPatientId ? ' selected' : '') + '>' + escapeHtml(p.name) + '</option>')
+    .join('');
+}
+
+function renderTabs(){
+  const p = currentPatient();
+  const hidden = p.settings.hiddenTabs || [];
+  const nav = document.getElementById('tabs');
+  nav.innerHTML = TABS
+    .filter(t => hidden.indexOf(t.id) === -1)
+    .map(t => '<button class="tab' + (state.ui.activeTab === t.id ? ' active' : '') + '" data-action="tab" data-tab="' + t.id + '">' +
+      '<span class="tab-icon">' + t.icon + '</span><span class="tab-label">' + t.label + '</span></button>')
+    .join('');
+}
+
+function render(){
+  applyTheme();
+  applyFontSize();
+  renderPatients();
+  renderTabs();
+  renderView();
+}
+
+/* ============================ VIEW ROUTER ============================ */
+
+function renderView(){
+  const host = document.getElementById('view');
+  const p = currentPatient();
+  const hidden = p.settings.hiddenTabs || [];
+  let tab = state.ui.activeTab;
+  if (hidden.indexOf(tab) !== -1){
+    const first = TABS.find(t => hidden.indexOf(t.id) === -1);
+    tab = first ? first.id : 'events';
+    state.ui.activeTab = tab;
+  }
+  switch (tab){
+    case 'events':   renderEvents(host); break;
+    case 'pressure': renderPressure(host); break;
+    case 'sugar':    renderSugar(host); break;
+    case 'meds':     renderMeds(host); break;
+    case 'stats':    renderStats(host); break;
+    case 'report':   renderReport(host); break;
+    case 'data':     renderData(host); break;
+    default:         host.innerHTML = '';
+  }
+  const brem = backupReminderHtml();
+  if (brem) host.innerHTML = brem + host.innerHTML;
+}
+
+/* ============================ SVG CHART ============================ */
+
+function svgChart(series, opts){
+  opts = opts || {};
+  const w = opts.w || 640, h = opts.h || 220;
+  const padL = 42, padR = 14, padT = 16, padB = 28;
+  const all = series.reduce((acc, s) => acc.concat(s.points), []);
+  if (!all.length) return '<div class="empty">Нет данных за период</div>';
+
+  const tAll = all.map(p => p.t);
+  const vAll = all.map(p => p.v);
+  let t0 = Math.min.apply(null, tAll);
+  let t1 = Math.max.apply(null, tAll);
+  if (t0 === t1){ t0 -= 43200000; t1 += 43200000; }
+
+  let vMin = Math.min.apply(null, vAll);
+  let vMax = Math.max.apply(null, vAll);
+  if (vMin === vMax){ vMin -= 1; vMax += 1; }
+  const span = vMax - vMin;
+  const lo = (opts.yMin !== undefined) ? opts.yMin : vMin - span * 0.15;
+  const hi = (opts.yMax !== undefined) ? opts.yMax : vMax + span * 0.15;
+
+  const X = t => padL + (t - t0) / (t1 - t0) * (w - padL - padR);
+  const Y = v => padT + (1 - (v - lo) / (hi - lo)) * (h - padT - padB);
+
+  let grid = '';
+  const steps = 4;
+  for (let i = 0; i <= steps; i++){
+    const v = lo + (hi - lo) * i / steps;
+    const y = Y(v).toFixed(1);
+    grid += '<line x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y + '" stroke="currentColor" stroke-opacity="0.12"/>';
+    grid += '<text x="' + (padL - 6) + '" y="' + (Number(y) + 3.5) + '" text-anchor="end" font-size="10" fill="currentColor" fill-opacity="0.6">' + fmtNum(v) + '</text>';
+  }
+
+  let paths = '';
+  series.forEach(s => {
+    if (!s.points.length) return;
+    const pts = s.points.slice().sort((a, b) => a.t - b.t);
+    const d = pts.map((p, i) => (i ? 'L' : 'M') + X(p.t).toFixed(1) + ' ' + Y(p.v).toFixed(1)).join(' ');
+    paths += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    pts.forEach(p => {
+      paths += '<circle cx="' + X(p.t).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="2.6" fill="' + s.color + '"/>';
+    });
+  });
+
+  const fd = t => { const d = new Date(t); return pad2(d.getDate()) + '.' + pad2(d.getMonth() + 1); };
+  let xl = '';
+  xl += '<text x="' + padL + '" y="' + (h - 8) + '" font-size="10" fill="currentColor" fill-opacity="0.6">' + fd(t0) + '</text>';
+  xl += '<text x="' + (w - padR) + '" y="' + (h - 8) + '" text-anchor="end" font-size="10" fill="currentColor" fill-opacity="0.6">' + fd(t1) + '</text>';
+
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" class="chart" preserveAspectRatio="xMidYMid meet">' +
+    grid + paths + xl + '</svg>';
+}
+
+function legend(items){
+  return '<div class="legend">' + items.map(i =>
+    '<span><i style="background:' + i.color + '"></i>' + escapeHtml(i.name) + '</span>'
+  ).join('') + '</div>';
+}
+
+/* ============================ TAB: EVENTS ============================ */
+
+function renderEvents(host){
+  const p = currentPatient();
+  const hidden = p.settings.hiddenEventButtons || [];
+  const visible = EVENT_BUTTONS.filter(b => hidden.indexOf(b.type) === -1);
+
+  const buttons = visible.map(b => {
+    const isValue = b.kind === 'value';
+    return '<button class="event-btn' + (isValue ? ' value' : '') + '" data-action="' + (isValue ? 'addValueEvent' : 'addEvent') + '" data-type="' + b.type + '">' +
+      '<span class="ev-icon">' + b.icon + '</span><span>' + escapeHtml(b.label) + '</span></button>';
+  }).join('');
+
+  host.innerHTML =
+    '<section class="card">' +
+      '<div class="card-head">' +
+        '<h2>Быстрые события</h2>' +
+        '<button class="icon-btn" data-action="configEventButtons" title="Настроить кнопки">⚙️</button>' +
+      '</div>' +
+      '<div class="event-grid">' + (buttons || '<div class="empty">Все кнопки скрыты</div>') + '</div>' +
+    '</section>' +
+    '<section class="card">' +
+      '<div class="card-head"><h2>Журнал событий</h2><span class="muted">' + p.events.length + ' записей</span></div>' +
+      '<div class="list">' + renderEventsList(p) + '</div>' +
+    '</section>' +
+    '<section class="card">' +
+      '<div class="card-head"><h2>Заметка о пациенте</h2></div>' +
+      '<label class="field"><span>Диагноз, особенности, рекомендации (сохраняется автоматически)</span>' +
+        '<textarea id="patientNote" rows="4" placeholder="Например: гипертония 2 ст., деменция, аллергия на пенициллин...">' + escapeHtml(p.note) + '</textarea>' +
+      '</label>' +
+    '</section>';
+}
+
+function renderEventsList(p){
+  const list = p.events.slice().sort((a, b) => b.ts - a.ts).slice(0, 150);
+  if (!list.length) return '<div class="empty">Пока нет событий</div>';
+  return list.map(ev => {
+    const b = EVENT_MAP[ev.type] || { label: ev.type, icon: '•' };
+    const val = (ev.value !== null && ev.value !== undefined)
+      ? '<span class="row-val">' + escapeHtml(String(ev.value)) + (b.unit ? ' ' + escapeHtml(b.unit) : '') + '</span>'
+      : '';
+    return '<div class="row">' +
+      '<span class="row-icon">' + b.icon + '</span>' +
+      '<div class="row-main">' +
+        '<div class="row-title">' + escapeHtml(b.label) + ' ' + val + '</div>' +
+        '<div class="row-sub">' + fmtDateTime(ev.ts) + '</div>' +
+      '</div>' +
+      '<button class="icon-btn del" data-action="delEvent" data-id="' + ev.id + '" title="Удалить">✕</button>' +
+    '</div>';
+  }).join('');
+}
+
+function addEvent(type, value){
+  const p = currentPatient();
+  p.events.push({ id: uid(), ts: Date.now(), type: type, value: (value === undefined ? null : value) });
+  save();
+  renderView();
+  showToast('Событие добавлено', 'ok');
+}
+
+function openValueEventModal(type){
+  const b = EVENT_MAP[type];
+  if (!b) return;
+  openModal(
+    '<h3>' + b.icon + ' ' + escapeHtml(b.label) + '</h3>' +
+    '<label class="field"><span>Значение (' + escapeHtml(b.unit) + ')</span>' +
+      '<input id="valInput" type="number" step="' + (b.step || 1) + '" inputmode="decimal" placeholder="0.0"></label>' +
+    '<div class="modal-actions">' +
+      '<button class="btn" data-modal-cancel>Отмена</button>' +
+      '<button class="btn primary" id="valSave">Добавить</button>' +
+    '</div>'
+  );
+  const inp = document.getElementById('valInput');
+  inp.focus();
+  const submit = () => {
+    const v = parseFloat(String(inp.value).replace(',', '.'));
+    if (isNaN(v)){ inp.focus(); return; }
+    addEvent(type, v);
+    closeModal();
+  };
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  document.getElementById('valSave').addEventListener('click', submit);
+}
+
+function openEventButtonsConfig(){
+  const p = currentPatient();
+  const hidden = p.settings.hiddenEventButtons || [];
+  openModal(
+    '<h3>Кнопки событий</h3>' +
+    '<div class="checkbox-list">' +
+      EVENT_BUTTONS.map(b =>
+        '<label class="check"><input type="checkbox" data-ev-type="' + b.type + '"' + (hidden.indexOf(b.type) === -1 ? ' checked' : '') + '>' +
+        '<span>' + b.icon + ' ' + escapeHtml(b.label) + '</span></label>'
+      ).join('') +
+    '</div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn" data-modal-cancel>Отмена</button>' +
+      '<button class="btn primary" id="saveEvBtns">Сохранить</button>' +
+    '</div>'
+  );
+  document.getElementById('saveEvBtns').addEventListener('click', () => {
+    const boxes = Array.prototype.slice.call(document.querySelectorAll('[data-ev-type]'));
+    p.settings.hiddenEventButtons = boxes.filter(x => !x.checked).map(x => x.dataset.evType);
+    save(); closeModal(); render();
+    showToast('Настройки кнопок сохранены', 'ok');
+  });
+}
+
+function openTabsConfig(){
+  const p = currentPatient();
+  const hidden = p.settings.hiddenTabs || [];
+  openModal(
+    '<h3>Видимые вкладки</h3>' +
+    '<div class="checkbox-list">' +
+      TABS.map(t =>
+        '<label class="check"><input type="checkbox" data-tab-id="' + t.id + '"' + (hidden.indexOf(t.id) === -1 ? ' checked' : '') + '>' +
+        '<span>' + t.icon + ' ' + escapeHtml(t.label) + '</span></label>'
+      ).join('') +
+    '</div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn" data-modal-cancel>Отмена</button>' +
+      '<button class="btn primary" id="saveTabs">Сохранить</button>' +
+    '</div>'
+  );
+  document.getElementById('saveTabs').addEventListener('click', () => {
+    const boxes = Array.prototype.slice.call(document.querySelectorAll('[data-tab-id]'));
+    const visible = boxes.filter(x => x.checked).map(x => x.dataset.tabId);
+    if (!visible.length){ showToast('Должна быть видна хотя бы одна вкладка', 'error'); return; }
+    p.settings.hiddenTabs = TABS.map(t => t.id).filter(id => visible.indexOf(id) === -1);
+    save(); closeModal(); render();
+    showToast('Вкладки настроены', 'ok');
+  });
+}
+
+/* ============================ TAB: PRESSURE ============================ */
+
+function pressureClass(sys, dia){
+  if (sys >= 180 || dia >= 110) return 'crit';
+  if (sys >= 140 || dia >= 90) return 'high';
+  if (sys >= 130 || dia >= 85) return 'warn';
+  return 'ok';
+}
+
+function pressureLabel(cls){
+  return { ok:'Норма', warn:'Выше нормы', high:'Высокое', crit:'Критическое' }[cls] || '';
+}
+
+function renderPressure(host){
+  const p = currentPatient();
+  const days = state.ui.pressurePeriod || 7;
+  const from = periodStart(days);
+  const list = p.pressure.filter(x => x.ts >= from).sort((a, b) => b.ts - a.ts);
+
+  /* графики */
+  const byDay = new Map();
+  p.pressure.filter(x => x.ts >= from).forEach(r => {
+    const k = todayKey(new Date(r.ts));
+    if (!byDay.has(k)) byDay.set(k, { sys: [], dia: [] });
+    byDay.get(k).sys.push(r.sys);
+    byDay.get(k).dia.push(r.dia);
+  });
+  const sysPts = [], diaPts = [];
+  byDay.forEach((v, k) => {
+    const t = new Date(k + 'T12:00:00').getTime();
+    sysPts.push({ t: t, v: avg(v.sys) });
+    diaPts.push({ t: t, v: avg(v.dia) });
+  });
+
+  const byDayW = new Map();
+  p.events.filter(e => e.type === 'weight' && e.ts >= from && e.value != null).forEach(e => {
+    const k = todayKey(new Date(e.ts));
+    if (!byDayW.has(k)) byDayW.set(k, []);
+    byDayW.get(k).push(Number(e.value));
+  });
+  const weightPts = [];
+  byDayW.forEach((v, k) => weightPts.push({ t: new Date(k + 'T12:00:00').getTime(), v: avg(v) }));
+
+  const pressureChart = svgChart(
+    [{ name: 'Верхнее', color: '#ef4444', points: sysPts }, { name: 'Нижнее', color: '#3b82f6', points: diaPts }],
+    { yMin: 40, yMax: 200 }
+  );
+
+  const weightChart = svgChart([{ name: 'Вес', color: '#22c55e', points: weightPts }], {});
+
+  host.innerHTML =
+    '<section class="card">' +
+      '<div class="card-head"><h2>Измерение давления</h2></div>' +
+      '<div class="form-row">' +
+        '<label class="field"><span>Верхнее</span><input id="pSys" type="number" inputmode="numeric" placeholder="120"></label>' +
+        '<label class="field"><span>Нижнее</span><input id="pDia" type="number" inputmode="numeric" placeholder="80"></label>' +
+        '<label class="field"><span>Пульс</span><input id="pPulse" type="number" inputmode="numeric" placeholder="70"></label>' +
+      '</div>' +
+      '<div class="btn-row"><button class="btn primary" data-action="addPressure">Сохранить измерение</button></div>' +
+    '</section>' +
+
+    '<section class="card">' +
+      '<div class="card-head">' +
+        '<h2>История измерений</h2>' +
+        '<select class="inline-select" data-change="pressurePeriod">' +
+          '<option value="7"' + (days === 7 ? ' selected' : '') + '>7 дней</option>' +
+          '<option value="30"' + (days === 30 ? ' selected' : '') + '>30 дней</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="list">' + renderPressureList(list) + '</div>' +
+    '</section>' +
+
+    '<section class="card">' +
+      '<div class="card-head"><h2>Среднее давление по дням</h2></div>' +
+      pressureChart +
+      legend([{ name: 'Верхнее', color: '#ef4444' }, { name: 'Нижнее', color: '#3b82f6' }]) +
+    '</section>' +
+
+    '<section class="card">' +
+      '<div class="card-head"><h2>Динамика веса</h2></div>' +
+      weightChart +
+    '</section>';
+}
+
+function renderPressureList(list){
+  if (!list.length) return '<div class="empty">Нет измерений за период</div>';
+  return list.map(r => {
+    const cls = pressureClass(r.sys, r.dia);
+    return '<div class="row">' +
+      '<span class="row-icon">❤️</span>' +
+      '<div class="row-main">' +
+        '<div class="row-title"><span class="row-val">' + r.sys + '/' + r.dia + '</span>' +
+          (r.pulse ? ' <span class="muted">пульс ' + r.pulse + '</span>' : '') +
+          ' <span class="badge ' + cls + '">' + pressureLabel(cls) + '</span></div>' +
+        '<div class="row-sub">' + fmtDateTime(r.ts) + '</div>' +
+      '</div>' +
+      '<button class="icon-btn del" data-action="delPressure" data-id="' + r.id + '" title="Удалить">✕</button>' +
+    '</div>';
+  }).join('');
+}
+
+function submitPressure(){
+  const p = currentPatient();
+  const sysEl = document.getElementById('pSys');
+  const diaEl = document.getElementById('pDia');
+  const pulseEl = document.getElementById('pPulse');
+
+  const sys = parseFloat(String(sysEl.value).replace(',', '.'));
+  const dia = parseFloat(String(diaEl.value).replace(',', '.'));
+  const pulseRaw = String(pulseEl.value).trim();
+  const pulse = pulseRaw === '' ? null : parseInt(pulseRaw, 10);
+
+  const errs = [];
+  if (!(sys >= 60 && sys <= 260)) errs.push('Верхнее давление должно быть от 60 до 260');
+  if (!(dia >= 30 && dia <= 160)) errs.push('Нижнее давление должно быть от 30 до 160');
+  if (!isNaN(sys) && !isNaN(dia) && sys <= dia) errs.push('Верхнее должно быть больше нижнего');
+  if (pulse !== null && (isNaN(pulse) || pulse < 30 || pulse > 220)) errs.push('Пульс должен быть от 30 до 220');
+
+  if (errs.length){ showToast(errs.join('. '), 'error'); return; }
+
+  p.pressure.push({ id: uid(), ts: Date.now(), sys: sys, dia: dia, pulse: pulse });
+  save();
+  renderView();
+
+  if (sys >= 180 || dia >= 110){
+    openModal(
+      '<h3 class="danger-title">🚨 Экстренное предупреждение</h3>' +
+      '<div class="modal-body">Показатели давления ' + sys + '/' + dia + ' критически высоки.\n\n' +
+      'Необходимо срочно связаться с врачом или вызвать скорую помощь. Не оставляйте человека одного.</div>' +
+      '<div class="modal-actions"><button class="btn danger" data-modal-cancel>Понятно</button></div>'
+    );
+  } else {
+    showToast('Измерение сохранено', 'ok');
+  }
+}
+
+/* ============================ TAB: SUGAR ============================ */
+
+function sugarClass(v){
+  if (v <= 3.5 || v >= 15) return 'crit';
+  if (v >= 10) return 'high';
+  if (v < 3.9) return 'warn';
+  return 'ok';
+}
+
+function sugarLabel(cls){
+  return { ok:'Норма', warn:'Низкий', high:'Высокий', crit:'Критический' }[cls] || '';
+}
+
+function renderSugar(host){
+  const p = currentPatient();
+  const days = state.ui.sugarPeriod || 7;
+  const from = periodStart(days);
+  const list = p.sugar.filter(x => x.ts >= from).sort((a, b) => b.ts - a.ts);
+
+  const sugarPts = p.sugar.filter(x => x.ts >= from)
+    .map(x => ({ t: x.ts, v: Number(x.value) }));
+
+  const byDayW = new Map();
+  p.events.filter(e => e.type === 'weight' && e.ts >= from && e.value != null).forEach(e => {
+    const k = todayKey(new Date(e.ts));
+    if (!byDayW.has(k)) byDayW.set(k, []);
+    byDayW.get(k).push(Number(e.value));
+  });
+  const weightPts = [];
+  byDayW.forEach((v, k) => weightPts.push({ t: new Date(k + 'T12:00:00').getTime(), v: avg(v) }));
+
+  host.innerHTML =
+    '<section class="card">' +
+      '<div class="card-head"><h2>Уровень глюкозы</h2></div>' +
+      '<div class="form-row">' +
+        '<label class="field"><span>Глюкоза (ммоль/л)</span><input id="sugarVal" type="number" step="0.1" inputmode="decimal" placeholder="5.5"></label>' +
+      '</div>' +
+      '<div class="btn-row"><button class="btn primary" data-action="addSugar">Сохранить</button></div>' +
+    '</section>' +
+
+    '<section class="card">' +
+      '<div class="card-head">' +
+        '<h2>История измерений</h2>' +
+        '<select class="inline-select" data-change="sugarPeriod">' +
+          '<option value="7"' + (days === 7 ? ' selected' : '') + '>7 дней</option>' +
+          '<option value="30"' + (days === 30 ? ' selected' : '') + '>30 дней</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="list">' + renderSugarList(list) + '</div>' +
+    '</section>' +
+
+    '<section class="card">' +
+      '<div class="card-head"><h2>Динамика сахара</h2></div>' +
+      svgChart([{ name: 'Глюкоза', color: '#8b5cf6', points: sugarPts }], { yMin: 0 }) +
+    '</section>' +
+
+    '<section class="card">' +
+      '<div class="card-head"><h2>Динамика веса</h2></div>' +
+      svgChart([{ name: 'Вес', color: '#22c55e', points: weightPts }], {}) +
+    '</section>';
+}
+
+function renderSugarList(list){
+  if (!list.length) return '<div class="empty">Нет измерений за период</div>';
+  return list.map(r => {
+    const cls = sugarClass(Number(r.value));
+    return '<div class="row">' +
+      '<span class="row-icon">🩸</span>' +
+      '<div class="row-main">' +
+        '<div class="row-title"><span class="row-val">' + fmtNum(r.value) + ' ммоль/л</span> ' +
+          '<span class="badge ' + cls + '">' + sugarLabel(cls) + '</span></div>' +
+        '<div class="row-sub">' + fmtDateTime(r.ts) + '</div>' +
+      '</div>' +
+      '<button class="icon-btn del" data-action="delSugar" data-id="' + r.id + '" title="Удалить">✕</button>' +
+    '</div>';
+  }).join('');
+}
+
+function submitSugar(){
+  const p = currentPatient();
+  const el = document.getElementById('sugarVal');
+  const v = parseFloat(String(el.value).replace(',', '.'));
+  if (isNaN(v) || v < 0.5 || v > 50){
+    showToast('Введите корректное значение (0.5–50 ммоль/л)', 'error');
+    return;
+  }
+  p.sugar.push({ id: uid(), ts: Date.now(), value: v });
+  save();
+  renderView();
+
+  if (v <= 3.5){
+    openModal(
+      '<h3 class="danger-title">⚠️ Низкий сахар</h3>' +
+      '<div class="modal-body">Уровень глюкозы ' + fmtNum(v) + ' ммоль/л — гипогликемия.\n\n' +
+      'Дайте быстрые углеводы (сок, сахар, сладкое), измерьте повторно через 15 минут. При потере сознания — вызывайте скорую.</div>' +
+      '<div class="modal-actions"><button class="btn danger" data-modal-cancel>Понятно</button></div>'
+    );
+  } else if (v >= 15){
+    openModal(
+      '<h3 class="danger-title">⚠️ Высокий сахар</h3>' +
+      '<div class="modal-body">Уровень глюкозы ' + fmtNum(v) + ' ммоль/л — гипергликемия.\n\n' +
+      'Проверьте кетоны, обеспечьте питьё, свяжитесь с врачом. При тошноте, рвоте, дыхании с запахом ацетона — вызывайте скорую.</div>' +
+      '<div class="modal-actions"><button class="btn danger" data-modal-cancel>Понятно</button></div>'
+    );
+  } else {
+    showToast('Измерение сохранено', 'ok');
+  }
+}
+
+/* ============================ TAB: MEDS ============================ */
+
+function renderMeds(host){
+  const p = currentPatient();
+  const tk = todayKey();
+  const log = p.medLog[tk] || {};
+  const anyTaken = Object.keys(log).length > 0;
+
+  let warn = '';
+  if (p.meds.length && !anyTaken){
+    warn = '<div class="alert warn">⚠️ Сегодня ещё нет ни одной отметки о приёме лекарств.</div>';
+  }
+
+  let body = '';
+  if (!p.meds.length){
+    body = '<div class="empty">План приёма не задан.</div>' +
+      (medsEditMode ? '<div class="btn-row" style="margin-top:10px"><button class="btn primary" data-action="addMed">➕ Добавить лекарство</button></div>' : '');
+  } else {
+    SLOTS.forEach(slot => {
+      const items = p.meds.filter(m => m.slots.indexOf(slot.id) !== -1);
+      if (!items.length) return;
+      body += '<div class="slot-head">' + slot.icon + ' ' + escapeHtml(slot.label) + '</div>';
+      items.forEach(m => {
+        const key = slot.id + '|' + m.id;
+        const taken = !!log[key];
+        body += '<div class="med-row' + (taken ? ' taken' : '') + '">' +
+          '<div class="med-info">' +
+            '<div class="med-name">' + escapeHtml(m.name) + '</div>' +
+            (m.dose ? '<div class="med-dose">' + escapeHtml(m.dose) + '</div>' : '') +
+            (taken ? '<div class="med-dose">✅ Принято в ' + new Date(log[key]).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) + '</div>' : '') +
+          '</div>' +
+          '<div class="med-actions">' +
+            (medsEditMode ? '<button class="btn sm" data-action="editMed" data-id="' + m.id + '">Изменить</button>' : '') +
+            '<button class="btn sm ' + (taken ? '' : 'primary') + '" data-action="takeMed" data-id="' + m.id + '" data-slot="' + slot.id + '">' + (taken ? 'Отменить' : 'Принято') + '</button>' +
+          '</div>' +
+        '</div>';
+      });
+    });
+    if (medsEditMode){
+      body += '<div class="btn-row" style="margin-top:12px"><button class="btn primary" data-action="addMed">➕ Добавить лекарство</button></div>';
+    }
+  }
+
+  host.innerHTML =
+    '<section class="card">' +
+      '<div class="card-head">' +
+        '<h2>Приём лекарств · ' + escapeHtml(fmtDate(Date.now())) + '</h2>' +
+        (medsEditMode
+          ? '<button class="btn primary sm" data-action="medsDone">✔ Готово</button>'
+          : '<button class="btn sm" data-action="medsEdit">✏️ Редактировать</button>') +
+      '</div>' +
+      warn + body +
+    '</section>';
+}
+
+function openMedModal(medId){
+  const p = currentPatient();
+  const med = medId ? p.meds.find(m => m.id === medId) : null;
+  openModal(
+    '<h3>' + (med ? 'Редактировать лекарство' : 'Новое лекарство') + '</h3>' +
+    '<label class="field"><span>Название</span><input id="medName" type="text" placeholder="Например, Аспирин" value="' + (med ? escapeHtml(med.name) : '') + '"></label>' +
+    '<label class="field"><span>Дозировка</span><input id="medDose" type="text" placeholder="Например, 100 мг" value="' + (med ? escapeHtml(med.dose || '') : '') + '"></label>' +
+    '<div class="field"><span>Время приёма (можно выбрать несколько)</span><div class="checkbox-list">' +
+      SLOTS.map(s => {
+        const on = med ? (med.slots || [med.slot]).indexOf(s.id) !== -1 : false;
+        return '<label class="check"><input type="checkbox" data-slot-id="' + s.id + '"' + (on ? ' checked' : '') + '><span>' + s.icon + ' ' + escapeHtml(s.label) + '</span></label>';
+      }).join('') +
+    '</div></div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn" data-modal-cancel>Отмена</button>' +
+      '<button class="btn primary" id="medSave">Сохранить</button>' +
+    '</div>'
+  );
+  document.getElementById('medName').focus();
+  document.getElementById('medSave').addEventListener('click', () => {
+    const name = document.getElementById('medName').value.trim();
+    if (!name){ showToast('Введите название', 'error'); return; }
+    const dose = document.getElementById('medDose').value.trim();
+    const slots = Array.prototype.slice.call(document.querySelectorAll('[data-slot-id]'))
+      .filter(x => x.checked).map(x => x.dataset.slotId);
+    if (!slots.length){ showToast('Выберите хотя бы одно время приёма', 'error'); return; }
+    if (med){
+      med.name = name; med.dose = dose; med.slots = slots;
+      if (!med.created) med.created = Date.now();
+    } else {
+      p.meds.push({ id: uid(), name: name, dose: dose, slots: slots, created: Date.now() });
+    }
+    save(); closeModal(); renderView();
+    showToast('Сохранено', 'ok');
+  });
+}
+
+function toggleMed(medId, slotId){
+  const p = currentPatient();
+  const tk = todayKey();
+  if (!p.medLog[tk]) p.medLog[tk] = {};
+  const key = slotId + '|' + medId;
+  if (p.medLog[tk][key]) delete p.medLog[tk][key];
+  else p.medLog[tk][key] = Date.now();
+  save();
+  renderView();
+}
+
+/* ============================ STATISTICS ============================ */
+
+function computeStats(days){
+  const p = currentPatient();
+  const from = periodStart(days);
+
+  const ev = p.events.filter(e => e.ts >= from);
+  const pr = p.pressure.filter(e => e.ts >= from);
+  const sg = p.sugar.filter(e => e.ts >= from);
+
+  const episodes = ev.filter(e => e.type === 'episode');
+  const bySlot = { morning: 0, day: 0, evening: 0, night: 0 };
+  episodes.forEach(e => {
+    const h = new Date(e.ts).getHours();
+    if (h >= 5 && h < 12) bySlot.morning++;
+    else if (h >= 12 && h < 17) bySlot.day++;
+    else if (h >= 17 && h < 22) bySlot.evening++;
+    else bySlot.night++;
+  });
+
+  const dry = ev.filter(e => e.type === 'dry').length;
+  const wet = ev.filter(e => e.type === 'wet').length;
+  const good = ev.filter(e => e.type === 'good').length;
+  const bad = ev.filter(e => e.type === 'bad').length;
+  const falls = ev.filter(e => e.type === 'fall').length;
+  const headaches = ev.filter(e => e.type === 'headache').length;
+  const refusals = ev.filter(e => e.type === 'refuse').length;
+
+  const avgSys = pr.length ? avg(pr.map(x => x.sys)) : null;
+  const avgDia = pr.length ? avg(pr.map(x => x.dia)) : null;
+  const highCount = pr.filter(x => x.sys >= 140 || x.dia >= 90).length;
+  const critCount = pr.filter(x => x.sys >= 180 || x.dia >= 110).length;
+
+  const avgSugar = sg.length ? avg(sg.map(x => Number(x.value))) : null;
+  const lowSugar = sg.filter(x => Number(x.value) <= 3.5).length;
+  const highSugar = sg.filter(x => Number(x.value) >= 15).length;
+
+  const temps = ev.filter(e => e.type === 'temp' && e.value != null).map(e => Number(e.value));
+  const maxTemp = temps.length ? Math.max.apply(null, temps) : null;
+
+  const weights = ev.filter(e => e.type === 'weight' && e.value != null)
+    .sort((a, b) => a.ts - b.ts)
+    .map(e => Number(e.value));
+  const weightFirst = weights.length ? weights[0] : null;
+  const weightLast = weights.length ? weights[weights.length - 1] : null;
+  const weightDelta = (weightFirst !== null && weightLast !== null) ? (weightLast - weightFirst) : null;
+
+  const scheduled = p.meds.filter(m => m.slots && m.slots.some(s => s !== 'asneeded'));
+  let missed = 0, totalDoses = 0;
+  const start = new Date(from);
+  start.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+    for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)){
+    const key = todayKey(d);
+    const log = p.medLog[key] || {};
+    const dayStart = d.getTime();
+    scheduled.forEach(m => {
+      if (m.created){
+        const medStart = new Date(m.created);
+        medStart.setHours(0, 0, 0, 0);
+        if (dayStart < medStart.getTime()) return;
+      }
+      m.slots.forEach(slotId => {
+        if (slotId === 'asneeded') return;
+        totalDoses++;
+        if (!log[slotId + '|' + m.id]) missed++;
+      });
+    });
+  }
+
+  return {
+    days: days,
+    from: from,
+    eventsTotal: ev.length,
+    episodes: episodes.length,
+    bySlot: bySlot,
+    dry: dry, wet: wet, good: good, bad: bad,
+    falls: falls, headaches: headaches, refusals: refusals,
+    pressureCount: pr.length,
+    avgSys: avgSys, avgDia: avgDia,
+    highCount: highCount, critCount: critCount,
+    sugarCount: sg.length, avgSugar: avgSugar,
+    lowSugar: lowSugar, highSugar: highSugar,
+    maxTemp: maxTemp,
+    weightFirst: weightFirst, weightLast: weightLast, weightDelta: weightDelta,
+    missedMeds: missed, totalDoses: totalDoses
+  };
+}
+
+function statCard(label, value, sub){
+  return '<div class="stat">' +
+    '<div class="stat-label">' + escapeHtml(label) + '</div>' +
+    '<div class="stat-value">' + escapeHtml(value) + '</div>' +
+    (sub ? '<div class="stat-sub">' + escapeHtml(sub) + '</div>' : '') +
+  '</div>';
+}
+
+function renderStats(host){
+  const days = state.ui.statsPeriod || 7;
+  const st = computeStats(days);
+  const p = currentPatient();
+
+  const avgP = (st.avgSys !== null) ? Math.round(st.avgSys) + '/' + Math.round(st.avgDia) : '—';
+  const weightSub = (st.weightDelta !== null)
+    ? ((st.weightDelta > 0 ? '+' : '') + fmtNum(st.weightDelta) + ' кг')
+    : 'нет данных';
+  const weightVal = (st.weightLast !== null) ? fmtNum(st.weightLast) + ' кг' : '—';
+
+  host.innerHTML =
+    '<section class="card">' +
+      '<div class="card-head">' +
+        '<h2>Статистика · ' + escapeHtml(p.name) + '</h2>' +
+        '<select class="inline-select" data-change="statsPeriod">' +
+          '<option value="7"' + (days === 7 ? ' selected' : '') + '>7 дней</option>' +
+          '<option value="30"' + (days === 30 ? ' selected' : '') + '>30 дней</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="stat-grid">' +
+        statCard('Всего событий', String(st.eventsTotal), 'за ' + days + ' дн.') +
+        statCard('Эпизоды', String(st.episodes),
+          'утро ' + st.bySlot.morning + ' · день ' + st.bySlot.day + ' · вечер ' + st.bySlot.evening + ' · ночь ' + st.bySlot.night) +
+        statCard('Сухо / Мокро', st.dry + ' / ' + st.wet, 'записано событий') +
+        statCard('Среднее давление', avgP, st.pressureCount + ' измерений') +
+        statCard('Выше 140/90', String(st.highCount), st.critCount ? 'критических: ' + st.critCount : 'критических нет') +
+        statCard('Самочувствие', st.good + ' / ' + st.bad, 'хорошо / плохо') +
+        statCard('Пропущено приёмов', String(st.missedMeds), 'из ' + st.totalDoses + ' по плану') +
+        statCard('Вес', weightVal, weightSub) +
+        statCard('Макс. температура', st.maxTemp !== null ? fmtNum(st.maxTemp) + ' °C' : '—', 'за период') +
+        statCard('Сахар (сред.)', st.avgSugar !== null ? fmtNum(st.avgSugar) + ' ммоль/л' : '—',
+          'низких: ' + st.lowSugar + ' · высоких: ' + st.highSugar) +
+      '</div>' +
+    '</section>' +
+    '<section class="card">' +
+      '<div class="card-head"><h2>Прочие события</h2></div>' +
+      '<div class="stat-grid">' +
+        statCard('Падения', String(st.falls), '') +
+        statCard('Головные боли', String(st.headaches), '') +
+        statCard('Отказ от еды', String(st.refusals), '') +
+      '</div>' +
+    '</section>';
+}
+
+/* ============================ REPORT ============================ */
+
+function pressureMark(cls){
+  return { ok:'🟢 норма', warn:'🟡 повышенное', high:'🟡 высокое', crit:'🔴 критическое' }[cls] || '';
+}
+
+function sugarMark(cls){
+  return { ok:'🟢 норма', warn:'🟡 низкий', high:'🟡 высокий', crit:'🔴 критический' }[cls] || '';
+}
+
+function sparkline(vals){
+  if (!vals || vals.length < 2) return '';
+  const blocks = '▁▂▃▄▅▆▇█';
+  const mn = Math.min.apply(null, vals);
+  const mx = Math.max.apply(null, vals);
+  const span = (mx - mn) || 1;
+  return vals.map(v => blocks[Math.round((v - mn) / span * (blocks.length - 1))]).join('');
+}
+
+function buildReport(days){
+  const p = currentPatient();
+  const st = computeStats(days);
+  const to = Date.now();
+  const L = [];
+
+  const ev = p.events.filter(e => e.ts >= st.from);
+  const pr = p.pressure.filter(r => r.ts >= st.from).sort((a, b) => a.ts - b.ts);
+  const sg = p.sugar.filter(r => r.ts >= st.from).sort((a, b) => a.ts - b.ts);
+  const wts = ev.filter(e => e.type === 'weight' && e.value != null).sort((a, b) => a.ts - b.ts);
+  const tmps = ev.filter(e => e.type === 'temp' && e.value != null).sort((a, b) => a.ts - b.ts);
+
+  const G_S = p.goalSys || 140;
+  const G_D = p.goalDia || 90;
+  const inGoal = pr.filter(r => r.sys < G_S && r.dia < G_D).length;
+  const critList = pr.filter(r => r.sys >= 180 || r.dia >= 110);
+  const lowSugarList = sg.filter(r => Number(r.value) <= 3.5);
+  const hiSugarList = sg.filter(r => Number(r.value) >= 15);
+  const prevList = p.pressure.filter(r => r.ts >= st.from - days * 86400000 && r.ts < st.from);
+
+  L.push('ОТЧЁТ О НАБЛЮДЕНИИ');
+  L.push('═════════════════════════════════════');
+  L.push('Пациент: ' + p.name);
+  L.push('Период: ' + fmtDate(st.from) + ' — ' + fmtDate(to) + ' (' + days + ' дн.)');
+  L.push('Сформирован: ' + fmtDateTime(to));
+  L.push('');
+
+  L.push('1. СВОДКА: ЧТО ТРЕБУЕТ ВНИМАНИЯ');
+  const flags = [];
+  if (critList.length){
+    flags.push('⚠️ Критическое АД (≥180/110): ' + critList.length + ' раз — ' + critList.map(r => fmtDateTime(r.ts) + ' (' + r.sys + '/' + r.dia + ')').join('; '));
+  }
+  if (lowSugarList.length){
+    flags.push('⚠️ Гипогликемия (≤3,5): ' + lowSugarList.length + ' раз — ' + lowSugarList.map(r => fmtDateTime(r.ts) + ' (' + fmtNum(r.value) + ')').join('; '));
+  }
+  if (hiSugarList.length){
+    flags.push('⚠️ Гипергликемия (≥15): ' + hiSugarList.length + ' раз — ' + hiSugarList.map(r => fmtDateTime(r.ts) + ' (' + fmtNum(r.value) + ')').join('; '));
+  }
+  if (st.falls) flags.push('⚠️ Падений: ' + st.falls);
+  if (st.missedMeds) flags.push('⚠️ Пропущено приёмов лекарств: ' + st.missedMeds + ' из ' + st.totalDoses);
+  if (pr.length){
+    flags.push('📊 Среднее АД: ' + Math.round(st.avgSys) + '/' + Math.round(st.avgDia) + ' мм рт. ст. — в цели (<' + G_S + '/' + G_D + ') ' + inGoal + ' из ' + pr.length + ' (' + Math.round(inGoal / pr.length * 100) + '%)');
+    if (pr.length >= 4){
+      const half = Math.floor(pr.length / 2);
+      const dd = avg(pr.slice(half).map(r => r.sys)) - avg(pr.slice(0, half).map(r => r.sys));
+      flags.push('📈 Динамика верхнего давления: ' + (dd >= 5 ? 'рост к концу периода ↑' : (dd <= -5 ? 'снижение ↓' : 'стабильно →')));
+    }
+    if (prevList.length){
+      const dp = st.avgSys - avg(prevList.map(r => r.sys));
+      flags.push('🗓 Прошлые ' + days + ' дн.: среднее ' + Math.round(avg(prevList.map(r => r.sys))) + '/' + Math.round(avg(prevList.map(r => r.dia))) + ' — ' + (Math.abs(dp) >= 3 ? (dp > 0 ? 'выше на +' : 'ниже на −') + Math.round(Math.abs(dp)) : 'на том же уровне'));
+    }
+  }
+  if (!flags.length) flags.push('✅ Тревожных отклонений за период не зафиксировано');
+  flags.forEach(f => L.push('   ' + f));
+  L.push('');
+
+  if (p.note && p.note.trim()){
+    L.push('КОНТЕКСТ О ПАЦИЕНТЕ:');
+    L.push(p.note.trim());
+    L.push('');
+  }
+
+  let n = 1;
+  const sectT = t => { n++; L.push(n + '. ' + t); };
+  if (pr.length){
+    sectT('АРТЕРИАЛЬНОЕ ДАВЛЕНИЕ (АД) И ПУЛЬС');
+    const sysAll = pr.map(r => r.sys);
+    const diaAll = pr.map(r => r.dia);
+    const puAll = pr.filter(r => r.pulse).map(r => r.pulse);
+    const variab = Math.max.apply(null, sysAll) - Math.min.apply(null, sysAll);
+    L.push('   Цель: <' + G_S + '/' + G_D + ' · достигнуто ' + inGoal + ' из ' + pr.length + ' (' + Math.round(inGoal / pr.length * 100) + '%)');
+    L.push('   Среднее: ' + Math.round(st.avgSys) + '/' + Math.round(st.avgDia) + ' · диапазон ' + Math.min.apply(null, sysAll) + '–' + Math.max.apply(null, sysAll) + ' / ' + Math.min.apply(null, diaAll) + '–' + Math.max.apply(null, diaAll) + ' · разброс верхнего ' + variab + ' ед.' + (variab >= 40 ? ' — значительные скачки' : ''));
+    if (puAll.length) L.push('   Пульс: средний ' + Math.round(avg(puAll)) + ', диапазон ' + Math.min.apply(null, puAll) + '–' + Math.max.apply(null, puAll) + ' уд/мин');
+    if (pr.length >= 2) L.push('   Динамика (слева — раньше): ' + sparkline(sysAll));
+    L.push('   Измерения:');
+    pr.forEach(r => {
+      L.push('     ' + fmtDateTime(r.ts) + '  ' + r.sys + '/' + r.dia + (r.pulse ? '  пульс ' + r.pulse : '') + '  ' + pressureMark(pressureClass(r.sys, r.dia)));
+    });
+  }
+  L.push('');
+
+  L.push('3. ГЛЮКОЗА КРОВИ');
+  if (sg.length){
+    const vals = sg.map(r => Number(r.value));
+    L.push('   Средний уровень: ' + fmtNum(st.avgSugar) + ' ммоль/л · диапазон ' + fmtNum(Math.min.apply(null, vals)) + ' – ' + fmtNum(Math.max.apply(null, vals)));
+    L.push('   Измерения:');
+    sg.forEach(r => {
+      L.push('     ' + fmtDateTime(r.ts) + '  ' + fmtNum(r.value) + ' ммоль/л  ' + sugarMark(sugarClass(Number(r.value))));
+    });
+  }
+  L.push('');
+
+  if (wts.length || tmps.length){
+    sectT('ВЕС И ТЕМПЕРАТУРА');
+    if (wts.length){
+    L.push('   Вес: ' + fmtNum(st.weightFirst) + ' кг → ' + fmtNum(st.weightLast) + ' кг' +
+      (st.weightDelta !== null ? ' (динамика ' + (st.weightDelta > 0 ? '+' : '') + fmtNum(st.weightDelta) + ' кг)' : '') + ', измерений ' + wts.length);
+    wts.forEach(e => L.push('     ' + fmtDateTime(e.ts) + '  ' + fmtNum(e.value) + ' кг'));
+  } else {
+    L.push('   Вес: не вносился.');
+  }
+  if (tmps.length){
+    L.push('   Температура: измерений ' + tmps.length + ', максимальная ' + fmtNum(st.maxTemp) + ' °C');
+    tmps.forEach(e => L.push('     ' + fmtDateTime(e.ts) + '  ' + fmtNum(e.value) + ' °C'));
+  } else {
+    L.push('   Температура: не измерялась.');
+  }
+  }
+  L.push('');
+
+  if (st.eventsTotal){
+    sectT('СОБЫТИЯ И САМОЧУВСТВИЕ');
+    const toilets = ev.filter(e => e.type === 'toilet').length;
+    const cnt = [];
+    if (toilets) cnt.push('туалет: ' + toilets);
+    if (st.dry || st.wet) cnt.push('сухо/мокро: ' + st.dry + '/' + st.wet);
+    if (st.good || st.bad) cnt.push('самочувствие хорошо/плохо: ' + st.good + '/' + st.bad);
+    if (st.falls) cnt.push('падения: ' + st.falls);
+    if (st.headaches) cnt.push('головная боль: ' + st.headaches);
+    if (st.refusals) cnt.push('отказ от еды: ' + st.refusals);
+    L.push('   Всего записей: ' + st.eventsTotal + ' · эпизодов: ' + st.episodes +
+      (st.episodes ? ' (утро ' + st.bySlot.morning + ', день ' + st.bySlot.day + ', вечер ' + st.bySlot.evening + ', ночь ' + st.bySlot.night + ')' : ''));
+    L.push('   ' + (cnt.join(' · ') || 'прочих событий нет'));
+  }
+  L.push('');
+
+  const byDay = new Map();
+  function bucket(ts){
+    const k = todayKey(new Date(ts));
+    if (!byDay.has(k)) byDay.set(k, { pr: [], sg: [], ep: 0, toilet: 0, dry: 0, wet: 0, falls: 0, good: 0, bad: 0, refuse: 0, headache: 0, temp: null });
+    return byDay.get(k);
+  }
+  pr.forEach(r => bucket(r.ts).pr.push(r));
+  sg.forEach(r => bucket(r.ts).sg.push(r));
+  ev.forEach(e => {
+    const b = bucket(e.ts);
+    if (e.type === 'episode') b.ep++;
+    else if (e.type === 'toilet') b.toilet++;
+    else if (e.type === 'dry') b.dry++;
+    else if (e.type === 'wet') b.wet++;
+    else if (e.type === 'fall') b.falls++;
+    else if (e.type === 'good') b.good++;
+    else if (e.type === 'bad') b.bad++;
+    else if (e.type === 'refuse') b.refuse++;
+    else if (e.type === 'headache') b.headache++;
+    else if (e.type === 'temp' && e.value != null){
+      const v = Number(e.value);
+      if (b.temp === null || v > b.temp) b.temp = v;
+    }
+  });
+  const dayItems = [];
+  for (let d = new Date(st.from); d.getTime() <= to; d.setDate(d.getDate() + 1)){
+    const k = todayKey(d);
+    dayItems.push({ k: k, b: byDay.get(k) || null });
+  }
+  const dayLines = [];
+  let run = null;
+  dayItems.forEach((it, idx) => {
+    if (it.b){
+      if (run){
+        const prevK = dayItems[idx - 1].k;
+        dayLines.push('   ' + (run === prevK ? prevK : run + '–' + prevK) + ' — данные не вносились');
+        run = null;
+      }
+      const b = it.b;
+      const parts = [];
+      if (b.pr.length) parts.push('АД ср. ' + Math.round(avg(b.pr.map(x => x.sys))) + '/' + Math.round(avg(b.pr.map(x => x.dia))) + ', ' + b.pr.length + ' изм.');
+      if (b.sg.length) parts.push('глюкоза ср. ' + fmtNum(avg(b.sg.map(x => Number(x.value)))));
+      if (b.ep) parts.push('эпизоды ' + b.ep);
+      if (b.toilet) parts.push('туалет ' + b.toilet);
+      if (b.dry || b.wet) parts.push('сухо/мокро ' + b.dry + '/' + b.wet);
+      if (b.good || b.bad) parts.push('самочувствие ' + b.good + '/' + b.bad);
+      if (b.falls) parts.push('падения ' + b.falls);
+      if (b.refuse) parts.push('отказ от еды ' + b.refuse);
+      if (b.headache) parts.push('головная боль ' + b.headache);
+      if (b.temp !== null) parts.push('макс. t ' + fmtNum(b.temp) + ' °C');
+      dayLines.push('   ' + fmtDate(new Date(it.k + 'T12:00:00').getTime()).slice(0, 5) + ' — ' + (parts.length ? parts.join(' · ') : 'без значимых записей'));
+    } else if (run === null){
+      run = it.k;
+    }
+  });
+  if (run){
+    const lastK = dayItems[dayItems.length - 1].k;
+    dayLines.push('   ' + (run === lastK ? run : run + '–' + lastK) + ' — данные не вносились');
+  }
+  if (dayLines.length){
+    sectT('ПО ДНЯМ');
+    dayLines.forEach(x => L.push(x));
+    L.push('');
+  }
+
+  if (p.meds.length){
+    sectT('ЛЕКАРСТВА');
+    L.push('   План приёма:');
+    p.meds.forEach(m => {
+      const labels = (m.slots || [m.slot]).map(id => (SLOTS.find(s => s.id === id) || { label: id }).label).join(', ');
+      L.push('   ' + labels + ': ' + m.name + (m.dose ? ' (' + m.dose + ')' : ''));
+    });
+    L.push('   Отметок «Принято» за период: ' + (st.totalDoses - st.missedMeds) + ' из ' + st.totalDoses + ' · пропущено: ' + st.missedMeds + ' (пропуски считаются с момента добавления препарата в план)');
+  } else {
+    L.push('   План приёма не задан.');
+  }
+  L.push('');
+
+  sectT('РЕКОМЕНДАЦИИ');
+  const recs = [];
+  if (critList.length) recs.push('🔴 Критические значения АД требуют немедленной консультации врача.');
+  if (pr.length && inGoal === 0) recs.push('Все измерения выше целевого уровня — возможна неэффективность терапии, обсудите схему с врачом.');
+  else if (pr.length && inGoal < pr.length) recs.push('Часть измерений выше цели — продолжайте контроль, обсудите с врачом при ухудшении.');
+  if (lowSugarList.length) recs.push('Была гипогликемия — держите под рукой быстрые углеводы (сок, сахар).');
+  if (hiSugarList.length) recs.push('Была гипергликемия — следите за питьём и питанием, обсудите с врачом.');
+  if (st.falls) recs.push('Были падения — обсудите с врачом причину и безопасность передвижения.');
+  const missing = [];
+  if (!sg.length) missing.push('глюкоза');
+  if (!wts.length) missing.push('вес');
+  if (!tmps.length) missing.push('температура');
+  if (missing.length) recs.push('Для полноты картины рекомендуется дополнить наблюдение: ' + missing.join(', ') + '.');
+  if (!recs.length) recs.push('Показатели в пределах целевых значений — продолжайте текущее наблюдение.');
+  recs.forEach(r => L.push('   • ' + r));
+  L.push('');
+  L.push('─────────────────────────────────────');
+  L.push('Отчёт сформирован автоматически приложением «Компас заботы».');
+
+  return L.join('\n');
+}
+
+/* ---------- HTML-версия отчёта (таблицы) ---------- */
+
+function buildReportHtml(days){
+  const p = currentPatient();
+  const st = computeStats(days);
+  const to = Date.now();
+  const ev = p.events.filter(e => e.ts >= st.from);
+  const pr = p.pressure.filter(r => r.ts >= st.from).sort((a, b) => a.ts - b.ts);
+  const sg = p.sugar.filter(r => r.ts >= st.from).sort((a, b) => a.ts - b.ts);
+  const wts = ev.filter(e => e.type === 'weight' && e.value != null).sort((a, b) => a.ts - b.ts);
+  const tmps = ev.filter(e => e.type === 'temp' && e.value != null).sort((a, b) => a.ts - b.ts);
+  const G_S = p.goalSys || 140;
+  const G_D = p.goalDia || 90;
+  const inGoal = pr.filter(r => r.sys < G_S && r.dia < G_D).length;
+  const critList = pr.filter(r => r.sys >= 180 || r.dia >= 110);
+  const lowSugarList = sg.filter(r => Number(r.value) <= 3.5);
+  const hiSugarList = sg.filter(r => Number(r.value) >= 15);
+  const prevList = p.pressure.filter(r => r.ts >= st.from - days * 86400000 && r.ts < st.from);
+  const rowCls = c => (c === 'crit' ? ' class="rep-crit"' : (c === 'warn' || c === 'high' ? ' class="rep-warn"' : ''));
+
+  const H = [];
+  H.push('<div class="report-doc">');
+  H.push('<h3 class="rep-title">Отчёт о наблюдении</h3>');
+  H.push('<p class="rep-meta">Пациент: <b>' + escapeHtml(p.name) + '</b> · Период: ' + fmtDate(st.from) + ' — ' + fmtDate(to) + ' (' + days + ' дн.) · Сформирован: ' + fmtDateTime(to) + '</p>');
+
+  H.push('<h4>1. Сводка: что требует внимания</h4>');
+  H.push('<ul class="rep-flags">');
+  let anyFlag = false;
+  const flag = (cls, txt) => { H.push('<li class="' + cls + '">' + txt + '</li>'); anyFlag = true; };
+  if (critList.length) flag('flag-crit', '⚠️ Критическое АД (≥180/110): ' + critList.length + ' раз — ' + critList.map(r => fmtDateTime(r.ts) + ' (' + r.sys + '/' + r.dia + ')').join('; '));
+  if (lowSugarList.length) flag('flag-crit', '⚠️ Гипогликемия (≤3,5): ' + lowSugarList.length + ' раз — ' + lowSugarList.map(r => fmtDateTime(r.ts) + ' (' + fmtNum(r.value) + ')').join('; '));
+  if (hiSugarList.length) flag('flag-crit', '⚠️ Гипергликемия (≥15): ' + hiSugarList.length + ' раз — ' + hiSugarList.map(r => fmtDateTime(r.ts) + ' (' + fmtNum(r.value) + ')').join('; '));
+  if (st.falls) flag('flag-crit', '⚠️ Падений: ' + st.falls);
+  if (st.missedMeds) flag('flag-warn', '⚠️ Пропущено приёмов лекарств: ' + st.missedMeds + ' из ' + st.totalDoses);
+  if (pr.length){
+    flag('flag-warn', '📊 Среднее АД: <b>' + Math.round(st.avgSys) + '/' + Math.round(st.avgDia) + '</b> мм рт. ст. — в цели (&lt;' + G_S + '/' + G_D + ') ' + inGoal + ' из ' + pr.length + ' (' + Math.round(inGoal / pr.length * 100) + '%)');
+    if (pr.length >= 4){
+      const half = Math.floor(pr.length / 2);
+      const dd = avg(pr.slice(half).map(r => r.sys)) - avg(pr.slice(0, half).map(r => r.sys));
+      flag('', '📈 Динамика верхнего давления: ' + (dd >= 5 ? 'рост к концу периода ↑' : (dd <= -5 ? 'снижение ↓' : 'стабильно →')));
+    }
+    if (prevList.length){
+      const dp = st.avgSys - avg(prevList.map(r => r.sys));
+      flag('', '🗓 Прошлые ' + days + ' дн.: среднее <b>' + Math.round(avg(prevList.map(r => r.sys))) + '/' + Math.round(avg(prevList.map(r => r.dia))) + '</b> — ' + (Math.abs(dp) >= 3 ? (dp > 0 ? 'выше на +' : 'ниже на −') + Math.round(Math.abs(dp)) : 'на том же уровне'));
+    }
+  }
+  if (!anyFlag) flag('flag-ok', '✅ Тревожных отклонений за период не зафиксировано');
+  H.push('</ul>');
+
+  if (p.note && p.note.trim()) H.push('<p class="rep-note"><b>Контекст:</b> ' + escapeHtml(p.note.trim()) + '</p>');
+
+  let n = 1;
+  const sect = t => { n++; H.push('<h4>' + n + '. ' + t + '</h4>'); };
+  if (pr.length){
+    sect('Артериальное давление (АД) и пульс');
+    const sysAll = pr.map(r => r.sys);
+    const diaAll = pr.map(r => r.dia);
+    const puAll = pr.filter(r => r.pulse).map(r => r.pulse);
+    const variab = Math.max.apply(null, sysAll) - Math.min.apply(null, sysAll);
+    H.push('<p>Среднее <b>' + Math.round(st.avgSys) + '/' + Math.round(st.avgDia) + '</b> · диапазон ' + Math.min.apply(null, sysAll) + '–' + Math.max.apply(null, sysAll) + ' / ' + Math.min.apply(null, diaAll) + '–' + Math.max.apply(null, diaAll) + ' · разброс верхнего ' + variab + ' ед.' + (variab >= 40 ? ' — <b>значительные скачки</b>' : '') + '</p>');
+    if (puAll.length) H.push('<p>Пульс: средний <b>' + Math.round(avg(puAll)) + '</b>, диапазон ' + Math.min.apply(null, puAll) + '–' + Math.max.apply(null, puAll) + ' уд/мин</p>');
+    if (pr.length >= 2){
+      const half = Math.floor(pr.length / 2);
+      const dd = pr.length >= 4 ? (avg(pr.slice(half).map(r => r.sys)) - avg(pr.slice(0, half).map(r => r.sys))) : 0;
+      const trend = pr.length >= 4 ? (dd >= 5 ? ' рост ↑' : (dd <= -5 ? ' снижение ↓' : ' стабильно →')) : '';
+      H.push('<p>Динамика (слева — раньше): <span class="mono">' + sparkline(sysAll) + '</span>' + trend + '</p>');
+    }
+    H.push('<table class="rep-table"><thead><tr><th>Время</th><th>АД, мм рт. ст.</th><th>Пульс</th><th>Оценка</th></tr></thead><tbody>');
+    pr.forEach(r => {
+      H.push('<tr' + rowCls(pressureClass(r.sys, r.dia)) + '><td>' + fmtDateTime(r.ts) + '</td><td><b>' + r.sys + '/' + r.dia + '</b></td><td>' + (r.pulse || '—') + '</td><td>' + pressureMark(pressureClass(r.sys, r.dia)) + '</td></tr>');
+    });
+    H.push('</tbody></table>');
+    if (prevList.length){
+      const dp = st.avgSys - avg(prevList.map(r => r.sys));
+      H.push('<p>Прошлые ' + days + ' дн.: среднее <b>' + Math.round(avg(prevList.map(r => r.sys))) + '/' + Math.round(avg(prevList.map(r => r.dia))) + '</b> — ' + (Math.abs(dp) >= 3 ? (dp > 0 ? 'выше на +' : 'ниже на −') + Math.round(Math.abs(dp)) : 'на том же уровне') + '</p>');
+    }
+  }
+
+  if (sg.length){
+    sect('Глюкоза крови');
+    H.push('<table class="rep-table"><thead><tr><th>Время</th><th>ммоль/л</th><th>Оценка</th></tr></thead><tbody>');
+    sg.forEach(r => {
+      H.push('<tr' + rowCls(sugarClass(Number(r.value))) + '><td>' + fmtDateTime(r.ts) + '</td><td><b>' + fmtNum(r.value) + '</b></td><td>' + sugarMark(sugarClass(Number(r.value))) + '</td></tr>');
+    });
+    H.push('</tbody></table>');
+  }
+
+  if (wts.length || tmps.length){
+    sect('Вес и температура');
+    if (wts.length){
+    H.push('<p>Вес: <b>' + fmtNum(st.weightFirst) + ' → ' + fmtNum(st.weightLast) + ' кг</b>' + (st.weightDelta !== null ? ' (динамика ' + (st.weightDelta > 0 ? '+' : '') + fmtNum(st.weightDelta) + ' кг)' : '') + '</p>');
+    H.push('<ul class="rep-list">' + wts.map(e => '<li>' + fmtDateTime(e.ts) + ' — ' + fmtNum(e.value) + ' кг</li>').join('') + '</ul>');
+  } else H.push('<p class="rep-empty">Вес не вносился.</p>');
+  if (tmps.length){
+    H.push('<p>Температура: измерений ' + tmps.length + ', максимальная <b>' + fmtNum(st.maxTemp) + ' °C</b></p>');
+    H.push('<ul class="rep-list">' + tmps.map(e => '<li>' + fmtDateTime(e.ts) + ' — ' + fmtNum(e.value) + ' °C</li>').join('') + '</ul>');
+  } else H.push('<p class="rep-empty">Температура не измерялась.</p>');
+  }
+
+  if (st.eventsTotal){
+    sect('События и самочувствие');
+    const toilets = ev.filter(e => e.type === 'toilet').length;
+    const cnt = [];
+    if (toilets) cnt.push('туалет: ' + toilets);
+    if (st.dry || st.wet) cnt.push('сухо/мокро: ' + st.dry + '/' + st.wet);
+    if (st.good || st.bad) cnt.push('самочувствие хорошо/плохо: ' + st.good + '/' + st.bad);
+    if (st.falls) cnt.push('падения: ' + st.falls);
+    if (st.headaches) cnt.push('головная боль: ' + st.headaches);
+    if (st.refusals) cnt.push('отказ от еды: ' + st.refusals);
+    H.push('<p>Всего записей: ' + st.eventsTotal + ' · эпизодов: ' + st.episodes + (st.episodes ? ' (утро ' + st.bySlot.morning + ', день ' + st.bySlot.day + ', вечер ' + st.bySlot.evening + ', ночь ' + st.bySlot.night + ')' : '') + '</p>');
+    H.push('<p>' + (cnt.join(' · ') || 'прочих событий нет') + '</p>');
+  }
+
+  const byDay = new Map();
+  function bucket(ts){
+    const k = todayKey(new Date(ts));
+    if (!byDay.has(k)) byDay.set(k, { pr: [], sg: [], ep: 0, toilet: 0, dry: 0, wet: 0, falls: 0, good: 0, bad: 0, refuse: 0, headache: 0, temp: null });
+    return byDay.get(k);
+  }
+  pr.forEach(r => bucket(r.ts).pr.push(r));
+  sg.forEach(r => bucket(r.ts).sg.push(r));
+  ev.forEach(e => {
+    const b = bucket(e.ts);
+    if (e.type === 'episode') b.ep++;
+    else if (e.type === 'toilet') b.toilet++;
+    else if (e.type === 'dry') b.dry++;
+    else if (e.type === 'wet') b.wet++;
+    else if (e.type === 'fall') b.falls++;
+    else if (e.type === 'good') b.good++;
+    else if (e.type === 'bad') b.bad++;
+    else if (e.type === 'refuse') b.refuse++;
+    else if (e.type === 'headache') b.headache++;
+    else if (e.type === 'temp' && e.value != null){
+      const v = Number(e.value);
+      if (b.temp === null || v > b.temp) b.temp = v;
+    }
+  });
+  const dayItems = [];
+  for (let d = new Date(st.from); d.getTime() <= to; d.setDate(d.getDate() + 1)){
+    const k = todayKey(d);
+    dayItems.push({ k: k, b: byDay.get(k) || null });
+  }
+  const dayHtml = [];
+  let run = null;
+  dayItems.forEach((it, idx) => {
+    if (it.b){
+      if (run){
+        const prevK = dayItems[idx - 1].k;
+        dayHtml.push('<li>' + (run === prevK ? prevK : run + '–' + prevK) + ' — данные не вносились</li>');
+        run = null;
+      }
+      const b = it.b;
+      const parts = [];
+      if (b.pr.length) parts.push('АД ср. <b>' + Math.round(avg(b.pr.map(x => x.sys))) + '/' + Math.round(avg(b.pr.map(x => x.dia))) + '</b>, ' + b.pr.length + ' изм.');
+      if (b.sg.length) parts.push('глюкоза ср. ' + fmtNum(avg(b.sg.map(x => Number(x.value)))));
+      if (b.ep) parts.push('эпизоды ' + b.ep);
+      if (b.toilet) parts.push('туалет ' + b.toilet);
+      if (b.dry || b.wet) parts.push('сухо/мокро ' + b.dry + '/' + b.wet);
+      if (b.good || b.bad) parts.push('самочувствие ' + b.good + '/' + b.bad);
+      if (b.falls) parts.push('падения ' + b.falls);
+      if (b.refuse) parts.push('отказ от еды ' + b.refuse);
+      if (b.headache) parts.push('головная боль ' + b.headache);
+      if (b.temp !== null) parts.push('макс. t ' + fmtNum(b.temp) + ' °C');
+      dayHtml.push('<li><b>' + fmtDate(new Date(it.k + 'T12:00:00').getTime()).slice(0, 5) + '</b> — ' + (parts.length ? parts.join(' · ') : 'без значимых записей') + '</li>');
+    } else if (run === null){
+      run = it.k;
+    }
+  });
+  if (run){
+    const lastK = dayItems[dayItems.length - 1].k;
+    dayHtml.push('<li>' + (run === lastK ? lastK : run + '–' + lastK) + ' — данные не вносились</li>');
+  }
+  if (dayHtml.length){
+    sect('По дням');
+    H.push('<ul class="rep-list rep-days">' + dayHtml.join('') + '</ul>');
+  }
+
+  if (p.meds.length){
+    sect('Лекарства');
+    H.push('<ul class="rep-list">' + p.meds.map(m => {
+      const labels = (m.slots || [m.slot]).map(id => (SLOTS.find(s => s.id === id) || { label: id }).label).join(', ');
+      return '<li><b>' + labels + '</b>: ' + escapeHtml(m.name) + (m.dose ? ' (' + escapeHtml(m.dose) + ')' : '') + '</li>';
+    }).join('') + '</ul>');
+    H.push('<p>Отметок «Принято»: <b>' + (st.totalDoses - st.missedMeds) + '</b> из ' + st.totalDoses + ' · пропущено: <b>' + st.missedMeds + '</b> (пропуски считаются с момента добавления препарата в план)</p>');
+  } else {
+    H.push('<p class="rep-empty">План приёма не задан.</p>');
+  }
+
+  sect('Рекомендации');
+  const recs = [];
+  if (critList.length) recs.push('🔴 Критические значения АД требуют немедленной консультации врача.');
+  if (pr.length && inGoal === 0) recs.push('Все измерения выше целевого уровня — возможна неэффективность терапии, обсудите схему с врачом.');
+  else if (pr.length && inGoal < pr.length) recs.push('Часть измерений выше цели — продолжайте контроль, обсудите с врачом при ухудшении.');
+  if (lowSugarList.length) recs.push('Была гипогликемия — держите под рукой быстрые углеводы (сок, сахар).');
+  if (hiSugarList.length) recs.push('Была гипергликемия — следите за питьём и питанием, обсудите с врачом.');
+  if (st.falls) recs.push('Были падения — обсудите с врачом причину и безопасность передвижения.');
+  const missing = [];
+  if (!sg.length) missing.push('глюкоза');
+  if (!wts.length) missing.push('вес');
+  if (!tmps.length) missing.push('температура');
+  if (missing.length) recs.push('Для полноты картины рекомендуется дополнить наблюдение: ' + missing.join(', ') + '.');
+  if (!recs.length) recs.push('Показатели в пределах целевых значений — продолжайте текущее наблюдение.');
+  H.push('<ul class="rep-list">' + recs.map(r => '<li>' + r + '</li>').join('') + '</ul>');
+
+  H.push('<p class="rep-footer">Отчёт сформирован автоматически приложением «Компас заботы».</p>');
+  H.push('</div>');
+  return H.join('');
+}
+
+function renderReport(host){
+  const days = state.ui.reportPeriod || 7;
+  host.innerHTML =
+    '<section class="card" id="reportCard">' +
+      '<div class="card-head no-print">' +
+        '<h2>Отчёт для врача</h2>' +
+        '<select class="inline-select" data-change="reportPeriod">' +
+          '<option value="7"' + (days === 7 ? ' selected' : '') + '>7 дней</option>' +
+          '<option value="30"' + (days === 30 ? ' selected' : '') + '>30 дней</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="btn-row no-print" style="margin-bottom:14px">' +
+        '<button class="btn primary" data-action="genReport">Сформировать</button>' +
+        '<button class="btn" data-action="copyReport">Копировать</button>' +
+        '<button class="btn" data-action="printReport">Печать (PDF)</button>' +
+      '</div>' +
+      '<div id="reportHtml">' + buildReportHtml(days) + '</div>' +
+    '</section>';
+}
+
+function copyReport(){
+  const text = buildReport(state.ui.reportPeriod || 7);
+  const done = () => showToast('Отчёт скопирован', 'ok');
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else {
+    fallbackCopy(text, done);
+  }
+}
+
+function fallbackCopy(text, done){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); done(); }
+  catch (e){ showToast('Не удалось скопировать', 'error'); }
+  ta.remove();
+}
+
+/* ---------- отправка копии и восстановление ---------- */
+
+function snapshotsList(){
+  try {
+    return JSON.parse(localStorage.getItem(SNAP_KEY) || '[]');
+  } catch (e){
+    return [];
+  }
+}
+
+function snapshotsHtml(){
+  const list = snapshotsList();
+  if (!list.length){
+    return '<p class="muted">Снимков пока нет. Приложение само сохраняет копию данных раз в сутки (хранятся 14 последних) — отсюда можно восстановить их, если что-то затрётся.</p>';
+  }
+  const rows = list.slice().reverse().map(s =>
+    '<div class="snap-row"><span>' + fmtDateTime(s.ts) + '</span>' +
+    '<button class="btn sm" data-action="restoreSnap" data-ts="' + s.ts + '">Восстановить</button></div>'
+  ).join('');
+  return rows + '<p class="muted" style="margin-top:8px">Снимки хранятся в этом браузере и не удаляются при импорте с заменой.</p>';
+}
+
+async function shareBackup(){
+  const json = JSON.stringify(state, null, 2);
+  const name = 'kompas-backup-' + todayKey() + '.json';
+
+  const downloadFallback = (msg) => {
+    try {
+      download(name, json, 'application/json');
+      markExport();
+      showToast(msg || 'Файл копии скачан', 'ok');
+    } catch (e){
+      showToast('Не удалось сохранить копию', 'error');
+    }
+  };
+
+  // 1. Secure context и наличие API
+  if (!window.isSecureContext || !navigator.share){
+    downloadFallback('Меню «Поделиться» недоступно — файл скачан в «Загрузки», отправьте его оттуда');
+    return;
+  }
+
+  // 2. Создаём файл
+  let file = null;
+  try {
+    file = new File([json], name, { type: 'application/json' });
+  } catch (e){
+    downloadFallback('Файл копии скачан в «Загрузки»');
+    return;
+  }
+
+  // 3. Поддержка шаринга именно файлов
+  let canShareFiles = false;
+  try {
+    canShareFiles = navigator.canShare && navigator.canShare({ files: [file] });
+  } catch (e){
+    canShareFiles = false;
+  }
+  if (!canShareFiles){
+    downloadFallback('Шаринг файлов не поддерживается — файл скачан в «Загрузки»');
+    return;
+  }
+
+  // 4. Пытаемся поделиться
+  try {
+    await navigator.share({ files: [file], title: 'Резервная копия «Компас заботы»' });
+    markExport();
+    showToast('Копия отправлена', 'ok');
+  } catch (err){
+    if (err && err.name === 'AbortError'){
+      showToast('Отправка отменена');
+      return;
+    }
+    console.warn('navigator.share failed:', err);
+    downloadFallback('Не удалось открыть меню (' + (err && err.name || 'неизвестная ошибка') + ') — файл скачан в «Загрузки»');
+  }
+}
+
+function restoreSnap(ts){
+  const snap = snapshotsList().find(s => s.ts === ts);
+  if (!snap) return;
+  modalConfirm('Восстановить данные на ' + fmtDateTime(ts) + '? Текущие данные будут заменены снимком.', { okText: 'Восстановить' })
+    .then(ok => {
+      if (!ok) return;
+      state = normalizeState(JSON.parse(JSON.stringify(snap.state)));
+      state.ui.activeTab = 'data';
+      save();
+      render();
+      showToast('Данные восстановлены', 'ok');
+    });
+}
+
+/* ============================ TAB: DATA ============================ */
+
+function renderData(host){
+  const p = currentPatient();
+  host.innerHTML =
+    '<section class="card">' +
+      '<div class="card-head"><h2>Целевые показатели</h2></div>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+        '<label class="field"><span>Верхнее АД меньше</span><input id="goalSys" type="number" inputmode="numeric" value="' + p.goalSys + '"></label>' +
+        '<label class="field"><span>Нижнее АД меньше</span><input id="goalDia" type="number" inputmode="numeric" value="' + p.goalDia + '"></label>' +
+      '</div>' +
+      '<p class="muted" style="margin-top:10px">По умолчанию 140/90 мм рт. ст. Врач может задать свои цели — отчёт будет считать процент достижения по ним.</p>' +
+    '</section>' +
+
+    '<section class="card">' +
+      '<div class="card-head"><h2>Экспорт</h2></div>' +
+      '<div class="btn-row">' +
+        '<button class="btn" data-action="exportCsvOne">CSV · текущий пациент</button>' +
+        '<button class="btn" data-action="exportCsvAll">CSV · все пациенты</button>' +
+        '<button class="btn primary" data-action="exportJson">JSON · резервная копия</button>' +
+        '<button class="btn primary" data-action="shareBackup">📤 Отправить копию</button>' +
+      '</div>' +
+    '</section>' +
+
+    '<section class="card">' +
+      '<div class="card-head"><h2>Восстановление</h2></div>' +
+      snapshotsHtml() +
+    '</section>' +
+
+    '<section class="card">' +
+      '<div class="card-head"><h2>Импорт</h2></div>' +
+      '<div class="btn-row">' +
+        '<button class="btn" data-action="importJson">Импорт JSON</button>' +
+        '<button class="btn" data-action="importCsv">Импорт CSV</button>' +
+      '</div>' +
+      '<p class="muted" style="margin-top:10px">При импорте можно добавить данные к существующим или заменить всё.</p>' +
+    '</section>' +
+
+    '<section class="card">' +
+      '<div class="card-head"><h2>Опасная зона</h2></div>' +
+      '<div class="btn-row">' +
+        '<button class="btn danger" data-action="clearAll">Очистить все данные</button>' +
+      '</div>' +
+    '</section>';
+}
+
+/* ---------- CSV ---------- */
+
+function buildCsv(patientIds){
+  const rows = [['Пациент', 'Дата', 'Время', 'Категория', 'Показатель', 'Значение', 'Доп']];
+  patientIds.forEach(id => {
+    const p = state.patients[id];
+    if (!p) return;
+    const recs = [];
+    p.events.forEach(e => {
+      const b = EVENT_MAP[e.type] || { label: e.type };
+      recs.push({
+        ts: e.ts, cat: 'Событие', name: b.label,
+        val: (e.value !== null && e.value !== undefined) ? String(e.value) : '',
+        extra: ''
+      });
+    });
+    p.pressure.forEach(e => {
+      recs.push({
+        ts: e.ts, cat: 'Давление', name: 'АД',
+        val: e.sys + '/' + e.dia,
+        extra: e.pulse ? 'пульс ' + e.pulse : ''
+      });
+    });
+    p.sugar.forEach(e => {
+      recs.push({ ts: e.ts, cat: 'Сахар', name: 'Глюкоза', val: String(e.value), extra: '' });
+    });
+    recs.sort((a, b) => a.ts - b.ts);
+    recs.forEach(r => {
+      const d = new Date(r.ts);
+      rows.push([p.name, todayKey(d), pad2(d.getHours()) + ':' + pad2(d.getMinutes()),
+        r.cat, r.name, r.val, r.extra]);
+    });
+  });
+  return rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+}
+
+async function importCsvText(text){
+  const rows = parseCSV(text);
+  if (rows.length < 2){ showToast('CSV пуст или неверного формата', 'error'); return; }
+  const head = rows[0].map(h => String(h).trim().toLowerCase());
+  if (head[0].indexOf('пациент') === -1 && head[0].indexOf('patient') === -1){
+    showToast('Не найден столбец «Пациент»', 'error');
+    return;
+  }
+
+  const mode = await modalChoice('Как импортировать CSV-данные?', [
+    { label: 'Добавить к существующим', value: 'append' },
+    { label: 'Заменить все записи', value: 'replace', danger: true }
+  ]);
+  if (!mode) return;
+
+  if (mode === 'replace'){
+    Object.values(state.patients).forEach(p => { p.events = []; p.pressure = []; p.sugar = []; });
+  }
+
+  let added = 0;
+  for (let i = 1; i < rows.length; i++){
+    const r = rows[i];
+    if (r.length < 6) continue;
+    const pname = String(r[0]).trim();
+    const dateStr = String(r[1]).trim();
+    const timeStr = String(r[2]).trim() || '00:00';
+    const cat = String(r[3]).trim();
+    const name = String(r[4]).trim();
+    const val = String(r[5]).trim();
+    const extra = r[6] ? String(r[6]).trim() : '';
+
+    let ts = new Date(dateStr + 'T' + timeStr).getTime();
+    if (isNaN(ts)) ts = Date.now();
+
+    let p = Object.values(state.patients).find(x => x.name === pname);
+    if (!p){
+      p = newPatient(pname);
+      state.patients[p.id] = p;
+    }
+
+    if (cat === 'Событие'){
+      const btn = EVENT_BUTTONS.find(b => b.label.toLowerCase() === name.toLowerCase());
+      const type = btn ? btn.type : name;
+      let num = null;
+      if (val !== ''){
+        const n = parseFloat(val.replace(',', '.'));
+        if (!isNaN(n)) num = n;
+      }
+      p.events.push({ id: uid(), ts: ts, type: type, value: num });
+      added++;
+    } else if (cat === 'Давление'){
+      const parts = val.split('/');
+      const sys = parseFloat(String(parts[0] || '').replace(',', '.'));
+      const dia = parseFloat(String(parts[1] || '').replace(',', '.'));
+      if (isNaN(sys) || isNaN(dia)) continue;
+      const pm = extra.match(/\d+/);
+      p.pressure.push({ id: uid(), ts: ts, sys: sys, dia: dia, pulse: pm ? parseInt(pm[0], 10) : null });
+      added++;
+    } else if (cat === 'Сахар'){
+      const v = parseFloat(val.replace(',', '.'));
+      if (isNaN(v)) continue;
+      p.sugar.push({ id: uid(), ts: ts, value: v });
+      added++;
+    }
+  }
+
+  save();
+  render();
+  showToast('Импортировано записей: ' + added, 'ok');
+}
+
+/* ---------- JSON ---------- */
+
+function mergeInto(dst, src){
+  src.events.forEach(e => dst.events.push(Object.assign({}, e, { id: uid() })));
+  src.pressure.forEach(e => dst.pressure.push(Object.assign({}, e, { id: uid() })));
+  src.sugar.forEach(e => dst.sugar.push(Object.assign({}, e, { id: uid() })));
+  src.meds.forEach(m => {
+    if (!dst.meds.some(x => x.id === m.id)) dst.meds.push(Object.assign({}, m));
+  });
+  Object.keys(src.medLog || {}).forEach(date => {
+    if (!dst.medLog[date]) dst.medLog[date] = {};
+    Object.assign(dst.medLog[date], src.medLog[date]);
+  });
+}
+
+async function importJsonText(text){
+  let data;
+  try { data = JSON.parse(text); }
+  catch (e){ showToast('Некорректный JSON-файл', 'error'); return; }
+
+  if (!data || typeof data !== 'object' || !data.patients){
+    showToast('Неверная структура файла', 'error');
+    return;
+  }
+
+  const mode = await modalChoice('Как импортировать JSON?', [
+    { label: 'Добавить к существующим', value: 'append' },
+    { label: 'Заменить все данные', value: 'replace', danger: true }
+  ]);
+  if (!mode) return;
+
+  const imported = normalizeState(JSON.parse(JSON.stringify(data)));
+
+  if (mode === 'replace'){
+    state = imported;
+  } else {
+    Object.keys(imported.patients).forEach(id => {
+      const ip = imported.patients[id];
+      const existing = Object.values(state.patients).find(p => p.name === ip.name);
+      if (existing) mergeInto(existing, ip);
+      else {
+        ip.id = uid();
+        state.patients[ip.id] = ip;
+      }
+    });
+  }
+
+  save();
+  render();
+  showToast('Импорт завершён', 'ok');
+}
+
+/* ============================ PATIENTS ============================ */
+
+async function addPatient(){
+  const name = await promptModal('Имя нового пациента', 'Пациент ' + (Object.keys(state.patients).length + 1));
+  if (name === null) return;
+  const trimmed = String(name).trim();
+  if (!trimmed) return;
+  const p = newPatient(trimmed);
+  state.patients[p.id] = p;
+  state.currentPatientId = p.id;
+  save();
+  render();
+  showToast('Пациент добавлен', 'ok');
+}
+
+async function renamePatient(){
+  const p = currentPatient();
+  const name = await promptModal('Новое имя пациента', p.name);
+  if (name === null) return;
+  const trimmed = String(name).trim();
+  if (!trimmed) return;
+  p.name = trimmed;
+  save();
+  render();
+  showToast('Имя изменено', 'ok');
+}
+
+async function deletePatient(){
+  const ids = Object.keys(state.patients);
+  if (ids.length <= 1){
+    showToast('Нельзя удалить единственного пациента', 'error');
+    return;
+  }
+  const p = currentPatient();
+  const ok = await modalConfirm(
+    'Удалить пациента «' + p.name + '» и все его данные?\nДействие необратимо.',
+    { okText: 'Удалить', danger: true }
+  );
+  if (!ok) return;
+  delete state.patients[p.id];
+  state.currentPatientId = Object.keys(state.patients)[0];
+  save();
+  render();
+  showToast('Пациент удалён', 'ok');
+}
+
+function promptModal(title, defaultValue){
+  return new Promise((resolve) => {
+    modalResolve = resolve;
+    openModal(
+      '<h3>' + escapeHtml(title) + '</h3>' +
+      '<label class="field"><span>Название</span><input id="promptInput" type="text" value="' + escapeHtml(defaultValue || '') + '"></label>' +
+      '<div class="modal-actions">' +
+        '<button class="btn" data-modal-cancel>Отмена</button>' +
+        '<button class="btn primary" data-modal-ok>OK</button>' +
+      '</div>'
+    );
+    const inp = document.getElementById('promptInput');
+    inp.focus();
+    inp.select();
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter'){ resolveModal(inp.value); }
+    });
+    // перехватываем OK, чтобы вернуть значение поля
+    const obs = new MutationObserver(() => {
+      if (!modalRoot.classList.contains('open')){
+        obs.disconnect();
+        if (modalResolve === resolve){
+          const r = modalResolve; modalResolve = null;
+          if (r) r(null);
+        }
+      }
+    });
+    obs.observe(modalRoot, { attributes: true, attributeFilter: ['class'] });
+    modalRoot.querySelector('[data-modal-ok]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      resolveModal(inp.value);
+    }, true);
+  });
+}
+
+/* ============================ HELP ============================ */
+
+function openHelp(){
+  openModal(
+    '<h3>❓ Руководство</h3>' +
+    '<div class="modal-body">' +
+      'Приложение помогает вести ежедневное наблюдение за пациентом. Все данные хранятся только в вашем браузере.\n\n' +
+      '👤 ПАЦИЕНТЫ\n' +
+      'В шапке выберите пациента. Кнопки ➕ / ✏️ / 🗑️ — добавить, переименовать, удалить. У каждого пациента свои события, измерения, лекарства и настройки.\n\n' +
+      '📋 СОБЫТИЯ\n' +
+      'Нажимайте кнопки для быстрой записи (Туалет, Эпизод, Сухо, Мокро и т.д.). Кнопки «Температура» и «Вес» попросят ввести значение. Кнопка ⚙️ скрывает ненужные кнопки — история при этом не удаляется.\n\n' +
+      '❤️ ДАВЛЕНИЕ\n' +
+      'Введите верхнее, нижнее и пульс — после трёх цифр курсор сам перескакивает на следующее поле. При давлении ≥180/110 появится экстренное предупреждение. История окрашивается по уровню, ниже — графики.\n\n' +
+      '🩸 САХАР\n' +
+      'Вводите глюкозу в ммоль/л. При значениях ≤3.5 или ≥15 появляется предупреждение.\n\n' +
+      '💊 ЛЕКАРСТВА\n' +
+      'Отмечайте приём кнопкой «Принято». Нажмите «Редактировать», чтобы добавить новый препарат или изменить существующий — время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить».\n\n' +
+      '📊 СТАТИСТИКА и 📄 ОТЧЁТ\n' +
+      'Автоматический расчёт за 7 или 30 дней. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
+      '💾 ДАННЫЕ\n' +
+      'Целевые значения АД, заметка о пациенте, экспорт в CSV/JSON, импорт, восстановление снимков, полная очистка.\n\n' +
+      '🛡 РЕЗЕРВНЫЕ КОПИИ\n' +
+      'Приложение раз в сутки само сохраняет снимок данных (хранятся 14 последних — восстанавливаются во вкладке «Данные»). Раз в неделю отправляйте копию кнопкой «Отправить копию» (Telegram, MAX, почта — откроется меню телефона) или скачивайте «JSON · резервная копия». Если копия не делалась больше 7 дней, наверху появится напоминание.\n\n' +
+      '📋 НАСТРОЙКА ВКЛАДОК\n' +
+      'Кнопка 📋 в шапке (справа от A+) позволяет скрыть ненужные разделы.\n\n' +
+      '🌙 ТЕМА и A− / A+\n' +
+      'Переключение светлой/тёмной темы и размера шрифта в шапке.' +
+    '</div>' +
+    '<div class="modal-actions"><button class="btn primary" data-modal-cancel>Закрыть</button></div>'
+  );
+}
+
+/* ============================ GLOBAL EVENTS ============================ */
+
+document.getElementById('btnHelp').addEventListener('click', openHelp);
+document.getElementById('btnTabsConfig').addEventListener('click', openTabsConfig);
+
+document.getElementById('btnTheme').addEventListener('click', () => {
+  state.ui.theme = state.ui.theme === 'dark' ? 'light' : 'dark';
+  save();
+  applyTheme();
+});
+
+document.getElementById('btnFontMinus').addEventListener('click', () => {
+  state.ui.fontSize = clamp(state.ui.fontSize - 1, 12, 24);
+  save();
+  applyFontSize();
+});
+
+document.getElementById('btnFontPlus').addEventListener('click', () => {
+  state.ui.fontSize = clamp(state.ui.fontSize + 1, 12, 24);
+  save();
+  applyFontSize();
+});
+
+document.getElementById('patientSelect').addEventListener('change', (e) => {
+  state.currentPatientId = e.target.value;
+  save();
+  render();
+});
+
+document.getElementById('btnAddPatient').addEventListener('click', addPatient);
+document.getElementById('btnRenamePatient').addEventListener('click', renamePatient);
+document.getElementById('btnDeletePatient').addEventListener('click', deletePatient);
+
+document.getElementById('fileJson').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  const text = await f.text();
+  importJsonText(text);
+});
+
+document.getElementById('fileCsv').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  const text = await f.text();
+  importCsvText(text);
+});
+
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'patientNote'){
+    currentPatient().note = e.target.value;
+    save();
+    return;
+  }
+  const id = e.target && e.target.id;
+  if (id === 'goalSys' || id === 'goalDia'){
+    let v = parseInt(e.target.value, 10);
+    if (isNaN(v)) v = null;
+    if (id === 'goalSys' && v !== null) v = Math.min(200, Math.max(90, v));
+    if (id === 'goalDia' && v !== null) v = Math.min(120, Math.max(50, v));
+    currentPatient()[id] = v;
+    save();
+    return;
+  }
+  if (id === 'pSys' || id === 'pDia' || id === 'pPulse'){
+    let v = String(e.target.value).replace(/[^0-9]/g, '');
+    if (v.length > 3) v = v.slice(0, 3);
+    if (v !== String(e.target.value)) e.target.value = v;
+    if (v.length >= 3){
+      const nxt = document.getElementById(id === 'pSys' ? 'pDia' : 'pPulse');
+      if (nxt){ nxt.focus(); try { nxt.select(); } catch (err){} }
+    }
+  }
+});
+
+document.addEventListener('change', (e) => {
+  const el = e.target.closest('[data-change]');
+  if (!el) return;
+  const key = el.dataset.change;
+  const val = Number(el.value);
+  if (key === 'statsPeriod'){ state.ui.statsPeriod = val; }
+  else if (key === 'reportPeriod'){ state.ui.reportPeriod = val; }
+  else if (key === 'pressurePeriod'){ state.ui.pressurePeriod = val; }
+  else if (key === 'sugarPeriod'){ state.ui.sugarPeriod = val; }
+  else return;
+  save();
+  render();
+});
+
+document.addEventListener('click', async (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.dataset.action;
+
+  switch (action){
+    case 'tab':
+      state.ui.activeTab = el.dataset.tab;
+      medsEditMode = false;
+      save();
+      render();
+      break;
+
+    case 'configTabs':
+      openTabsConfig();
+      break;
+
+    case 'configEventButtons':
+      openEventButtonsConfig();
+      break;
+
+    case 'addEvent':
+      addEvent(el.dataset.type);
+      break;
+
+    case 'addValueEvent':
+      openValueEventModal(el.dataset.type);
+      break;
+
+    case 'delEvent': {
+      const p = currentPatient();
+      p.events = p.events.filter(x => x.id !== el.dataset.id);
+      save();
+      renderView();
+      break;
+    }
+
+    case 'addPressure':
+      submitPressure();
+      break;
+
+    case 'delPressure': {
+      const p = currentPatient();
+      p.pressure = p.pressure.filter(x => x.id !== el.dataset.id);
+      save();
+      renderView();
+      break;
+    }
+
+    case 'addSugar':
+      submitSugar();
+      break;
+
+    case 'delSugar': {
+      const p = currentPatient();
+      p.sugar = p.sugar.filter(x => x.id !== el.dataset.id);
+      save();
+      renderView();
+      break;
+    }
+
+    case 'addMed':
+      openMedModal(null);
+      break;
+
+    case 'medsEdit':
+      medsEditMode = true;
+      renderView();
+      break;
+
+    case 'medsDone':
+      medsEditMode = false;
+      renderView();
+      break;
+
+    case 'editMed':
+      openMedModal(el.dataset.id);
+      break;
+
+    case 'delMed': {
+      const p = currentPatient();
+      p.meds = p.meds.filter(m => m.id !== el.dataset.id);
+      save();
+      renderView();
+      showToast('Лекарство удалено', 'ok');
+      break;
+    }
+
+    case 'takeMed':
+      toggleMed(el.dataset.id, el.dataset.slot);
+      break;
+
+    case 'genReport':
+      renderView();
+      showToast('Отчёт сформирован', 'ok');
+      break;
+
+    case 'copyReport':
+      copyReport();
+      break;
+
+    case 'printReport':
+      window.print();
+      break;
+
+    case 'exportCsvOne':
+      download('kompas-' + sanitizeFile(currentPatient().name) + '-' + todayKey() + '.csv',
+        buildCsv([state.currentPatientId]), 'text/csv');
+      showToast('CSV сохранён', 'ok');
+      break;
+
+    case 'exportCsvAll':
+      download('kompas-vse-patients-' + todayKey() + '.csv',
+        buildCsv(Object.keys(state.patients)), 'text/csv');
+      showToast('CSV сохранён', 'ok');
+      break;
+
+    case 'goBackup':
+      state.ui.activeTab = 'data';
+      save();
+      render();
+      break;
+
+    case 'shareBackup':
+      shareBackup();
+      break;
+
+    case 'restoreSnap':
+      restoreSnap(Number(el.dataset.ts));
+      break;
+
+    case 'exportJson':
+      download('kompas-backup-' + todayKey() + '.json',
+        JSON.stringify(state, null, 2), 'application/json');
+      markExport();
+      showToast('Резервная копия сохранена', 'ok');
+      break;
+
+    case 'importJson':
+      document.getElementById('fileJson').click();
+      break;
+
+    case 'importCsv':
+      document.getElementById('fileCsv').click();
+      break;
+
+    case 'clearAll':
+      clearAllData();
+      break;
+  }
+});
+
+function sanitizeFile(s){
+  return String(s).replace(/[^\wа-яА-ЯёЁ\-]+/g, '_').slice(0, 40) || 'patient';
+}
+
+async function clearAllData(){
+  const ok = await modalConfirm(
+    'Удалить ВСЕ данные приложения (все пациенты, события, измерения, лекарства)?\nЭто действие необратимо.',
+    { okText: 'Удалить всё', danger: true }
+  );
+  if (!ok) return;
+
+  const backup = await modalConfirm(
+    'Сделать резервную копию (JSON) перед удалением?',
+    { okText: 'Да, скачать', cancelText: 'Нет, удалить' }
+  );
+  if (backup){
+    download('kompas-backup-' + todayKey() + '.json',
+      JSON.stringify(state, null, 2), 'application/json');
+  }
+
+  try { localStorage.removeItem(STORE_KEY); } catch (err){ /* ignore */ }
+  state = defaultState();
+  save();
+  render();
+  showToast('Все данные удалены', 'ok');
+}
+
+/* ============================ INIT ============================ */
+
+render();
+</script>
+</body>
+</html>
