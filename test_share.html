@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тест «Поделиться»</title>
+<style>
+  body{font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px}
+  button{display:block;width:100%;margin:10px 0;padding:14px;font-size:16px;border-radius:10px;border:1px solid #999;background:#eee}
+  p{color:#555}
+</style>
+</head>
+<body>
+<h3>Тест системного «Поделиться»</h3>
+<p>Нажимайте кнопки по очереди. Результат появится в окошке — сфотографируйте и пришлите.</p>
+<button onclick="check()">0. Что говорит canShare</button>
+<button onclick="testText()">1. Поделиться текстом</button>
+<button onclick="testFile()">2. Поделиться файлом (JSON)</button>
+<script>
+function show(a, b){ alert(a + '\n\n' + b); }
+function check(){
+  var r = 'navigator.share: ' + (navigator.share ? 'есть' : 'нет') + '\n';
+  r += 'isSecureContext: ' + (window.isSecureContext ? 'да' : 'нет') + '\n';
+  if (navigator.canShare){
+    try {
+      var f = new File(['{"test":1}'], 'test.json', {type:'application/json'});
+      r += 'canShare(файл json): ' + navigator.canShare({files:[f]});
+    } catch(e){ r += 'canShare: ошибка ' + e.name; }
+  } else r += 'canShare: отсутствует';
+  show('Проверка возможностей', r);
+}
+function testText(){
+  navigator.share({ title: 'Тест', text: 'Тестовое сообщение из «Компаса заботы»' })
+    .then(function(){ show('Текст', 'отправлен успешно'); })
+    .catch(function(e){ show('Текст: ошибка', e.name + ' — ' + (e.message || 'без описания')); });
+}
+function testFile(){
+  var f;
+  try { f = new File(['{"test":1}'], 'test.json', {type:'application/json'}); }
+  catch(e){ show('Файл', 'не создался: ' + e.name); return; }
+  navigator.share({ files: [f], title: 'Тест' })
+    .then(function(){ show('Файл', 'отправлен успешно'); })
+    .catch(function(e){ show('Файл: ошибка', e.name + ' — ' + (e.message || 'без описания')); });
+}
+</script>
+</body>
+</html>
