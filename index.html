@@ -1932,7 +1932,7 @@ async function shareBackup(){
       return;
     }
     console.warn('navigator.share failed:', err);
-    downloadFallback('Не удалось открыть меню — файл скачан в «Загрузки»');
+    downloadFallback('Не удалось открыть меню (' + (err && err.name || 'неизвестная ошибка') + ') — файл скачан в «Загрузки»');
   }
 }
 
