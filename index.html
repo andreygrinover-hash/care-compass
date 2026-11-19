@@ -62,9 +62,13 @@
     background:var(--bg);color:var(--text);font-size:.92rem;font-family:inherit;
   }
   .patient-search{
-    flex:0 0 92px;min-width:0;padding:7px 10px;border-radius:10px;border:1px solid var(--border);
+    flex:0 0 96px;min-width:0;padding:7px 10px;border-radius:10px;border:1px solid var(--border);
     background:var(--bg);color:var(--text);font-size:.92rem;font-family:inherit;
   }
+  .patient-suggest{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 10px}
+  .patient-suggest[hidden]{display:none}
+  .sug-btn{padding:6px 10px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;font-size:.86rem;cursor:pointer}
+  .sug-btn.cur{border-color:var(--primary);color:var(--primary);font-weight:600}
   .tabs{
     display:flex;gap:6px;overflow-x:auto;padding:0 10px 8px;scrollbar-width:none;
   }
@@ -127,10 +131,10 @@
     padding:6px 10px;border-radius:9px;border:1px solid var(--border);background:var(--bg);
     color:var(--text);font-family:inherit;font-size:.85rem;
   }
-  .rep-custom{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;font-size:.86rem}
-  .rep-custom-label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
-  .rep-custom input[type="date"]{padding:6px 8px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;font-size:.85rem}
-  .rep-dash{color:var(--muted)}
+  .rep-dates{display:flex;gap:6px;align-items:center;margin-bottom:12px;font-size:.86rem}
+  .rep-dates-label{color:var(--muted);flex-shrink:0}
+  .rep-dates input[type="date"]{flex:1;min-width:0;padding:6px 8px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;font-size:.85rem}
+  .rep-hint{font-size:.84rem;color:var(--muted);margin-bottom:12px}
   .alert{padding:11px 14px;border-radius:11px;font-size:.86rem;margin-bottom:12px;border:1px solid transparent;font-weight:500}
   .alert.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
   .alert.crit{background:var(--crit-bg);color:var(--danger);border-color:var(--danger)}
@@ -259,6 +263,7 @@
     <button class="icon-btn" id="btnRenamePatient" title="Переименовать" aria-label="Переименовать">✏️</button>
     <button class="icon-btn" id="btnDeletePatient" title="Удалить" aria-label="Удалить">🗑️</button>
   </div>
+  <div id="patientSuggest" class="patient-suggest" hidden></div>
   <nav class="tabs" id="tabs"></nav>
 </div>
 
@@ -697,17 +702,24 @@ function applyFontSize(){
 
 function renderPatients(){
   const sel = document.getElementById('patientSelect');
-  const search = document.getElementById('patientSearch');
-  const q = search ? String(search.value || '').trim().toLowerCase() : '';
-  let list = Object.values(state.patients);
-  if (q){
-    list = list.filter(p => String(p.name).toLowerCase().indexOf(q) !== -1);
-    const cur = state.patients[state.currentPatientId];
-    if (cur && !list.some(x => x.id === cur.id)) list.push(cur);
-  }
-  sel.innerHTML = list
+  sel.innerHTML = Object.values(state.patients)
     .map(p => '<option value="' + p.id + '"' + (p.id === state.currentPatientId ? ' selected' : '') + '>' + escapeHtml(p.name) + '</option>')
     .join('');
+  renderPatientSuggest();
+}
+
+function renderPatientSuggest(){
+  const box = document.getElementById('patientSuggest');
+  const search = document.getElementById('patientSearch');
+  if (!box || !search) return;
+  const q = String(search.value || '').trim().toLowerCase();
+  if (!q){ box.hidden = true; box.innerHTML = ''; return; }
+  const list = Object.values(state.patients)
+    .filter(p => String(p.name).toLowerCase().indexOf(q) !== -1);
+  box.hidden = false;
+  box.innerHTML = list.length
+    ? list.map(p => '<button type="button" class="sug-btn' + (p.id === state.currentPatientId ? ' cur' : '') + '" data-action="pickSuggest" data-id="' + p.id + '">' + escapeHtml(p.name) + (p.id === state.currentPatientId ? ' · сейчас' : '') + '</button>').join('')
+    : '<span class="muted">Никого не нашлось</span>';
 }
 
 function renderTabs(){
@@ -1903,20 +1915,23 @@ function renderReport(host){
       '<div class="card-head no-print">' +
         '<h2>Отчёт для врача</h2>' +
         '<select class="inline-select" data-change="reportPeriod">' +
-          PERIODS.map(d => '<option value="' + d + '"' + (days === d ? ' selected' : '') + '>' + d + ' дн.</option>').join('') +
+          PERIODS.map(d => '<option value="' + d + '"' + (!custom && days === d ? ' selected' : '') + '>' + d + ' дн.</option>').join('') +
+          '<option value="custom"' + (custom ? ' selected' : '') + '>Свой период…</option>' +
         '</select>' +
       '</div>' +
-      '<div class="btn-row no-print" style="margin-bottom:10px">' +
+      (custom ?
+        '<div class="rep-dates no-print">' +
+          '<span class="rep-dates-label">с</span>' +
+          '<input type="date" id="repFrom" value="' + (state.ui.reportFrom || '') + '" aria-label="С даты">' +
+          '<span class="rep-dates-label">по</span>' +
+          '<input type="date" id="repTo" value="' + (state.ui.reportTo || '') + '" aria-label="По дату">' +
+        '</div>' +
+        ((state.ui.reportFrom && state.ui.reportTo) ? '' :
+          '<div class="rep-hint no-print">Выберите обе даты — пока отчёт строится за ' + days + ' дн.</div>') : '') +
+      '<div class="btn-row no-print" style="margin-bottom:14px">' +
         '<button class="btn primary" data-action="genReport">Сформировать</button>' +
         '<button class="btn" data-action="copyReport">Копировать</button>' +
         '<button class="btn" data-action="printReport">Печать (PDF)</button>' +
-      '</div>' +
-      '<div class="rep-custom no-print">' +
-        '<label class="rep-custom-label"><input type="checkbox" id="repCustom"' + (custom ? ' checked' : '') + '> Свой период</label>' +
-        (custom ?
-          '<input type="date" id="repFrom" value="' + (state.ui.reportFrom || '') + '" aria-label="С даты">' +
-          '<span class="rep-dash">—</span>' +
-          '<input type="date" id="repTo" value="' + (state.ui.reportTo || '') + '" aria-label="По дату">' : '') +
       '</div>' +
       '<div id="reportHtml">' + buildReportHtml(days) + '</div>' +
     '</section>';
@@ -2384,7 +2399,7 @@ function openHelp(){
       '💊 ЛЕКАРСТВА\n' +
       'Отмечайте приём кнопкой «Принято». Нажмите «Редактировать», чтобы добавить новый препарат или изменить существующий — время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить».\n\n' +
       '📊 СТАТИСТИКА и 📄 ОТЧЁТ\n' +
-      'Автоматический расчёт за 3–90 дней; отчёт можно построить и за свой период — галочка «Свой период» и две даты. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
+      'Автоматический расчёт за 3–90 дней; отчёт можно построить и за свой период — пункт «Свой период…» в списке периодов и две даты. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
       '💾 ДАННЫЕ\n' +
       'Целевые значения АД, заметка о пациенте, экспорт в CSV/JSON, импорт, восстановление снимков, полная очистка.\n\n' +
       '🛡 РЕЗЕРВНЫЕ КОПИИ\n' +
@@ -2429,7 +2444,6 @@ document.getElementById('patientSelect').addEventListener('change', (e) => {
 
 document.addEventListener('change', (e) => {
   const id = e.target && e.target.id;
-  if (id === 'repCustom'){ state.ui.reportCustom = e.target.checked; save(); render(); return; }
   if (id === 'repFrom'){ state.ui.reportFrom = e.target.value; save(); render(); return; }
   if (id === 'repTo'){ state.ui.reportTo = e.target.value; save(); render(); return; }
 });
@@ -2456,7 +2470,7 @@ document.getElementById('fileCsv').addEventListener('change', async (e) => {
 
 document.addEventListener('input', (e) => {
   if (e.target && e.target.id === 'patientSearch'){
-    renderPatients();
+    renderPatientSuggest();
     return;
   }
   if (e.target && e.target.id === 'patientNote'){
@@ -2491,7 +2505,10 @@ document.addEventListener('change', (e) => {
   const key = el.dataset.change;
   const val = Number(el.value);
   if (key === 'statsPeriod'){ state.ui.statsPeriod = val; }
-  else if (key === 'reportPeriod'){ state.ui.reportPeriod = val; }
+  else if (key === 'reportPeriod'){
+    if (el.value === 'custom'){ state.ui.reportCustom = true; }
+    else { state.ui.reportCustom = false; state.ui.reportPeriod = val; }
+  }
   else if (key === 'pressurePeriod'){ state.ui.pressurePeriod = val; }
   else if (key === 'sugarPeriod'){ state.ui.sugarPeriod = val; }
   else return;
@@ -2642,6 +2659,15 @@ document.addEventListener('click', async (e) => {
         buildCsv(Object.keys(state.patients)), 'text/csv');
       showToast('CSV сохранён', 'ok');
       break;
+
+    case 'pickSuggest': {
+      const inp = document.getElementById('patientSearch');
+      if (inp) inp.value = '';
+      state.currentPatientId = el.dataset.id;
+      save();
+      render();
+      break;
+    }
 
     case 'goBackup':
       state.ui.activeTab = 'data';
