@@ -61,6 +61,10 @@
     flex:1;min-width:0;padding:7px 10px;border-radius:10px;border:1px solid var(--border);
     background:var(--bg);color:var(--text);font-size:.92rem;font-family:inherit;
   }
+  .patient-search{
+    flex:0 0 92px;min-width:0;padding:7px 10px;border-radius:10px;border:1px solid var(--border);
+    background:var(--bg);color:var(--text);font-size:.92rem;font-family:inherit;
+  }
   .tabs{
     display:flex;gap:6px;overflow-x:auto;padding:0 10px 8px;scrollbar-width:none;
   }
@@ -123,6 +127,10 @@
     padding:6px 10px;border-radius:9px;border:1px solid var(--border);background:var(--bg);
     color:var(--text);font-family:inherit;font-size:.85rem;
   }
+  .rep-custom{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;font-size:.86rem}
+  .rep-custom-label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+  .rep-custom input[type="date"]{padding:6px 8px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;font-size:.85rem}
+  .rep-dash{color:var(--muted)}
   .alert{padding:11px 14px;border-radius:11px;font-size:.86rem;margin-bottom:12px;border:1px solid transparent;font-weight:500}
   .alert.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
   .alert.crit{background:var(--crit-bg);color:var(--danger);border-color:var(--danger)}
@@ -246,6 +254,7 @@
   <div class="patient-bar">
     <label class="patient-label" for="patientSelect">Пациент</label>
     <select id="patientSelect"></select>
+    <input id="patientSearch" class="patient-search" type="search" inputmode="search" autocomplete="off" placeholder="Поиск" aria-label="Поиск пациента">
     <button class="icon-btn" id="btnAddPatient" title="Добавить пациента" aria-label="Добавить пациента">➕</button>
     <button class="icon-btn" id="btnRenamePatient" title="Переименовать" aria-label="Переименовать">✏️</button>
     <button class="icon-btn" id="btnDeletePatient" title="Удалить" aria-label="Удалить">🗑️</button>
@@ -267,6 +276,8 @@
 /* ============================ CONSTANTS ============================ */
 
 const STORE_KEY = 'kompas_care_v1';
+
+const PERIODS = [3, 7, 14, 30, 60, 90];
 
 const TABS = [
   { id:'events',   label:'События',    icon:'📋' },
@@ -350,6 +361,17 @@ function periodStart(days){
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - (days - 1));
   return d.getTime();
+}
+
+function reportRange(days){
+  if (state.ui.reportCustom && state.ui.reportFrom && state.ui.reportTo){
+    const f = new Date(state.ui.reportFrom + 'T00:00:00').getTime();
+    const t = new Date(state.ui.reportTo + 'T23:59:59').getTime();
+    if (!isNaN(f) && !isNaN(t) && f <= t){
+      return { from: f, to: t, span: Math.max(1, Math.round((t - f) / 86400000)) };
+    }
+  }
+  return { from: periodStart(days), to: Date.now(), span: days };
 }
 
 function csvEscape(v){
@@ -471,10 +493,14 @@ function normalizeState(s){
   s.ui.theme = s.ui.theme === 'dark' ? 'dark' : 'light';
   s.ui.fontSize = clamp(Number(s.ui.fontSize) || 16, 12, 24);
   s.ui.activeTab = TABS.some(t => t.id === s.ui.activeTab) ? s.ui.activeTab : 'events';
-  s.ui.statsPeriod = [7, 30].includes(Number(s.ui.statsPeriod)) ? Number(s.ui.statsPeriod) : 7;
-  s.ui.reportPeriod = [7, 30].includes(Number(s.ui.reportPeriod)) ? Number(s.ui.reportPeriod) : 7;
-  s.ui.pressurePeriod = [7, 30].includes(Number(s.ui.pressurePeriod)) ? Number(s.ui.pressurePeriod) : 7;
-  s.ui.sugarPeriod = [7, 30].includes(Number(s.ui.sugarPeriod)) ? Number(s.ui.sugarPeriod) : 7;
+  const PER = PERIODS;
+  s.ui.statsPeriod = PER.includes(Number(s.ui.statsPeriod)) ? Number(s.ui.statsPeriod) : 7;
+  s.ui.reportPeriod = PER.includes(Number(s.ui.reportPeriod)) ? Number(s.ui.reportPeriod) : 7;
+  s.ui.pressurePeriod = PER.includes(Number(s.ui.pressurePeriod)) ? Number(s.ui.pressurePeriod) : 7;
+  s.ui.sugarPeriod = PER.includes(Number(s.ui.sugarPeriod)) ? Number(s.ui.sugarPeriod) : 7;
+  s.ui.reportCustom = !!s.ui.reportCustom;
+  s.ui.reportFrom = (typeof s.ui.reportFrom === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.ui.reportFrom)) ? s.ui.reportFrom : '';
+  s.ui.reportTo = (typeof s.ui.reportTo === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.ui.reportTo)) ? s.ui.reportTo : '';
 
   for (const id of Object.keys(s.patients)){
     const p = s.patients[id] || {};
@@ -671,7 +697,15 @@ function applyFontSize(){
 
 function renderPatients(){
   const sel = document.getElementById('patientSelect');
-  sel.innerHTML = Object.values(state.patients)
+  const search = document.getElementById('patientSearch');
+  const q = search ? String(search.value || '').trim().toLowerCase() : '';
+  let list = Object.values(state.patients);
+  if (q){
+    list = list.filter(p => String(p.name).toLowerCase().indexOf(q) !== -1);
+    const cur = state.patients[state.currentPatientId];
+    if (cur && !list.some(x => x.id === cur.id)) list.push(cur);
+  }
+  sel.innerHTML = list
     .map(p => '<option value="' + p.id + '"' + (p.id === state.currentPatientId ? ' selected' : '') + '>' + escapeHtml(p.name) + '</option>')
     .join('');
 }
@@ -980,8 +1014,7 @@ function renderPressure(host){
       '<div class="card-head">' +
         '<h2>История измерений</h2>' +
         '<select class="inline-select" data-change="pressurePeriod">' +
-          '<option value="7"' + (days === 7 ? ' selected' : '') + '>7 дней</option>' +
-          '<option value="30"' + (days === 30 ? ' selected' : '') + '>30 дней</option>' +
+          PERIODS.map(d => '<option value="' + d + '"' + (days === d ? ' selected' : '') + '>' + d + ' дн.</option>').join('') +
         '</select>' +
       '</div>' +
       '<div class="list">' + renderPressureList(list) + '</div>' +
@@ -1095,8 +1128,7 @@ function renderSugar(host){
       '<div class="card-head">' +
         '<h2>История измерений</h2>' +
         '<select class="inline-select" data-change="sugarPeriod">' +
-          '<option value="7"' + (days === 7 ? ' selected' : '') + '>7 дней</option>' +
-          '<option value="30"' + (days === 30 ? ' selected' : '') + '>30 дней</option>' +
+          PERIODS.map(d => '<option value="' + d + '"' + (days === d ? ' selected' : '') + '>' + d + ' дн.</option>').join('') +
         '</select>' +
       '</div>' +
       '<div class="list">' + renderSugarList(list) + '</div>' +
@@ -1265,13 +1297,15 @@ function toggleMed(medId, slotId){
 
 /* ============================ STATISTICS ============================ */
 
-function computeStats(days){
+function computeStats(days, fromTs, toTs){
   const p = currentPatient();
-  const from = periodStart(days);
+  const from = (fromTs != null) ? fromTs : periodStart(days);
+  const endTs = (toTs != null) ? toTs : null;
+  const inRange = (ts) => ts >= from && (endTs === null || ts <= endTs);
 
-  const ev = p.events.filter(e => e.ts >= from);
-  const pr = p.pressure.filter(e => e.ts >= from);
-  const sg = p.sugar.filter(e => e.ts >= from);
+  const ev = p.events.filter(e => inRange(e.ts));
+  const pr = p.pressure.filter(e => inRange(e.ts));
+  const sg = p.sugar.filter(e => inRange(e.ts));
 
   const episodes = ev.filter(e => e.type === 'episode');
   const bySlot = { morning: 0, day: 0, evening: 0, night: 0 };
@@ -1314,7 +1348,7 @@ function computeStats(days){
   let missed = 0, totalDoses = 0;
   const start = new Date(from);
   start.setHours(0, 0, 0, 0);
-  const today = new Date();
+  const today = (endTs !== null) ? new Date(endTs) : new Date();
   today.setHours(0, 0, 0, 0);
     for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)){
     const key = todayKey(d);
@@ -1377,8 +1411,7 @@ function renderStats(host){
       '<div class="card-head">' +
         '<h2>Статистика · ' + escapeHtml(p.name) + '</h2>' +
         '<select class="inline-select" data-change="statsPeriod">' +
-          '<option value="7"' + (days === 7 ? ' selected' : '') + '>7 дней</option>' +
-          '<option value="30"' + (days === 30 ? ' selected' : '') + '>30 дней</option>' +
+          PERIODS.map(d => '<option value="' + d + '"' + (days === d ? ' selected' : '') + '>' + d + ' дн.</option>').join('') +
         '</select>' +
       '</div>' +
       '<div class="stat-grid">' +
@@ -1427,13 +1460,14 @@ function sparkline(vals){
 
 function buildReport(days){
   const p = currentPatient();
-  const st = computeStats(days);
-  const to = Date.now();
+  const rng = reportRange(days);
+  const st = computeStats(rng.span, rng.from, rng.to);
+  const to = rng.to;
   const L = [];
 
-  const ev = p.events.filter(e => e.ts >= st.from);
-  const pr = p.pressure.filter(r => r.ts >= st.from).sort((a, b) => a.ts - b.ts);
-  const sg = p.sugar.filter(r => r.ts >= st.from).sort((a, b) => a.ts - b.ts);
+  const ev = p.events.filter(e => e.ts >= st.from && e.ts <= to);
+  const pr = p.pressure.filter(r => r.ts >= st.from && r.ts <= to).sort((a, b) => a.ts - b.ts);
+  const sg = p.sugar.filter(r => r.ts >= st.from && r.ts <= to).sort((a, b) => a.ts - b.ts);
   const wts = ev.filter(e => e.type === 'weight' && e.value != null).sort((a, b) => a.ts - b.ts);
   const tmps = ev.filter(e => e.type === 'temp' && e.value != null).sort((a, b) => a.ts - b.ts);
 
@@ -1443,12 +1477,12 @@ function buildReport(days){
   const critList = pr.filter(r => r.sys >= 180 || r.dia >= 110);
   const lowSugarList = sg.filter(r => Number(r.value) <= 3.5);
   const hiSugarList = sg.filter(r => Number(r.value) >= 15);
-  const prevList = p.pressure.filter(r => r.ts >= st.from - days * 86400000 && r.ts < st.from);
+  const prevList = p.pressure.filter(r => r.ts >= st.from - rng.span * 86400000 && r.ts < st.from);
 
   L.push('ОТЧЁТ О НАБЛЮДЕНИИ');
   L.push('═════════════════════════════════════');
   L.push('Пациент: ' + p.name);
-  L.push('Период: ' + fmtDate(st.from) + ' — ' + fmtDate(to) + ' (' + days + ' дн.)');
+  L.push('Период: ' + fmtDate(st.from) + ' — ' + fmtDate(to) + ' (' + rng.span + ' дн.)');
   L.push('Сформирован: ' + fmtDateTime(to));
   L.push('');
 
@@ -1474,7 +1508,7 @@ function buildReport(days){
     }
     if (prevList.length){
       const dp = st.avgSys - avg(prevList.map(r => r.sys));
-      flags.push('🗓 Прошлые ' + days + ' дн.: среднее ' + Math.round(avg(prevList.map(r => r.sys))) + '/' + Math.round(avg(prevList.map(r => r.dia))) + ' — ' + (Math.abs(dp) >= 3 ? (dp > 0 ? 'выше на +' : 'ниже на −') + Math.round(Math.abs(dp)) : 'на том же уровне'));
+      flags.push('🗓 Прошлые ' + rng.span + ' дн.: среднее ' + Math.round(avg(prevList.map(r => r.sys))) + '/' + Math.round(avg(prevList.map(r => r.dia))) + ' — ' + (Math.abs(dp) >= 3 ? (dp > 0 ? 'выше на +' : 'ниже на −') + Math.round(Math.abs(dp)) : 'на том же уровне'));
     }
   }
   if (!flags.length) flags.push('✅ Тревожных отклонений за период не зафиксировано');
@@ -1655,11 +1689,12 @@ function buildReport(days){
 
 function buildReportHtml(days){
   const p = currentPatient();
-  const st = computeStats(days);
-  const to = Date.now();
-  const ev = p.events.filter(e => e.ts >= st.from);
-  const pr = p.pressure.filter(r => r.ts >= st.from).sort((a, b) => a.ts - b.ts);
-  const sg = p.sugar.filter(r => r.ts >= st.from).sort((a, b) => a.ts - b.ts);
+  const rng = reportRange(days);
+  const st = computeStats(rng.span, rng.from, rng.to);
+  const to = rng.to;
+  const ev = p.events.filter(e => e.ts >= st.from && e.ts <= to);
+  const pr = p.pressure.filter(r => r.ts >= st.from && r.ts <= to).sort((a, b) => a.ts - b.ts);
+  const sg = p.sugar.filter(r => r.ts >= st.from && r.ts <= to).sort((a, b) => a.ts - b.ts);
   const wts = ev.filter(e => e.type === 'weight' && e.value != null).sort((a, b) => a.ts - b.ts);
   const tmps = ev.filter(e => e.type === 'temp' && e.value != null).sort((a, b) => a.ts - b.ts);
   const G_S = p.goalSys || 140;
@@ -1668,13 +1703,13 @@ function buildReportHtml(days){
   const critList = pr.filter(r => r.sys >= 180 || r.dia >= 110);
   const lowSugarList = sg.filter(r => Number(r.value) <= 3.5);
   const hiSugarList = sg.filter(r => Number(r.value) >= 15);
-  const prevList = p.pressure.filter(r => r.ts >= st.from - days * 86400000 && r.ts < st.from);
+  const prevList = p.pressure.filter(r => r.ts >= st.from - rng.span * 86400000 && r.ts < st.from);
   const rowCls = c => (c === 'crit' ? ' class="rep-crit"' : (c === 'warn' || c === 'high' ? ' class="rep-warn"' : ''));
 
   const H = [];
   H.push('<div class="report-doc">');
   H.push('<h3 class="rep-title">Отчёт о наблюдении</h3>');
-  H.push('<p class="rep-meta">Пациент: <b>' + escapeHtml(p.name) + '</b> · Период: ' + fmtDate(st.from) + ' — ' + fmtDate(to) + ' (' + days + ' дн.) · Сформирован: ' + fmtDateTime(to) + '</p>');
+  H.push('<p class="rep-meta">Пациент: <b>' + escapeHtml(p.name) + '</b> · Период: ' + fmtDate(st.from) + ' — ' + fmtDate(to) + ' (' + rng.span + ' дн.) · Сформирован: ' + fmtDateTime(to) + '</p>');
 
   H.push('<h4>1. Сводка: что требует внимания</h4>');
   H.push('<ul class="rep-flags">');
@@ -1694,7 +1729,7 @@ function buildReportHtml(days){
     }
     if (prevList.length){
       const dp = st.avgSys - avg(prevList.map(r => r.sys));
-      flag('', '🗓 Прошлые ' + days + ' дн.: среднее <b>' + Math.round(avg(prevList.map(r => r.sys))) + '/' + Math.round(avg(prevList.map(r => r.dia))) + '</b> — ' + (Math.abs(dp) >= 3 ? (dp > 0 ? 'выше на +' : 'ниже на −') + Math.round(Math.abs(dp)) : 'на том же уровне'));
+      flag('', '🗓 Прошлые ' + rng.span + ' дн.: среднее <b>' + Math.round(avg(prevList.map(r => r.sys))) + '/' + Math.round(avg(prevList.map(r => r.dia))) + '</b> — ' + (Math.abs(dp) >= 3 ? (dp > 0 ? 'выше на +' : 'ниже на −') + Math.round(Math.abs(dp)) : 'на том же уровне'));
     }
   }
   if (!anyFlag) flag('flag-ok', '✅ Тревожных отклонений за период не зафиксировано');
@@ -1725,7 +1760,7 @@ function buildReportHtml(days){
     H.push('</tbody></table>');
     if (prevList.length){
       const dp = st.avgSys - avg(prevList.map(r => r.sys));
-      H.push('<p>Прошлые ' + days + ' дн.: среднее <b>' + Math.round(avg(prevList.map(r => r.sys))) + '/' + Math.round(avg(prevList.map(r => r.dia))) + '</b> — ' + (Math.abs(dp) >= 3 ? (dp > 0 ? 'выше на +' : 'ниже на −') + Math.round(Math.abs(dp)) : 'на том же уровне') + '</p>');
+      H.push('<p>Прошлые ' + rng.span + ' дн.: среднее <b>' + Math.round(avg(prevList.map(r => r.sys))) + '/' + Math.round(avg(prevList.map(r => r.dia))) + '</b> — ' + (Math.abs(dp) >= 3 ? (dp > 0 ? 'выше на +' : 'ниже на −') + Math.round(Math.abs(dp)) : 'на том же уровне') + '</p>');
     }
   }
 
@@ -1862,19 +1897,26 @@ function buildReportHtml(days){
 
 function renderReport(host){
   const days = state.ui.reportPeriod || 7;
+  const custom = !!state.ui.reportCustom;
   host.innerHTML =
     '<section class="card" id="reportCard">' +
       '<div class="card-head no-print">' +
         '<h2>Отчёт для врача</h2>' +
         '<select class="inline-select" data-change="reportPeriod">' +
-          '<option value="7"' + (days === 7 ? ' selected' : '') + '>7 дней</option>' +
-          '<option value="30"' + (days === 30 ? ' selected' : '') + '>30 дней</option>' +
+          PERIODS.map(d => '<option value="' + d + '"' + (days === d ? ' selected' : '') + '>' + d + ' дн.</option>').join('') +
         '</select>' +
       '</div>' +
-      '<div class="btn-row no-print" style="margin-bottom:14px">' +
+      '<div class="btn-row no-print" style="margin-bottom:10px">' +
         '<button class="btn primary" data-action="genReport">Сформировать</button>' +
         '<button class="btn" data-action="copyReport">Копировать</button>' +
         '<button class="btn" data-action="printReport">Печать (PDF)</button>' +
+      '</div>' +
+      '<div class="rep-custom no-print">' +
+        '<label class="rep-custom-label"><input type="checkbox" id="repCustom"' + (custom ? ' checked' : '') + '> Свой период</label>' +
+        (custom ?
+          '<input type="date" id="repFrom" value="' + (state.ui.reportFrom || '') + '" aria-label="С даты">' +
+          '<span class="rep-dash">—</span>' +
+          '<input type="date" id="repTo" value="' + (state.ui.reportTo || '') + '" aria-label="По дату">' : '') +
       '</div>' +
       '<div id="reportHtml">' + buildReportHtml(days) + '</div>' +
     '</section>';
@@ -2332,7 +2374,7 @@ function openHelp(){
     '<div class="modal-body">' +
       'Приложение помогает вести ежедневное наблюдение за пациентом. Все данные хранятся только в вашем браузере.\n\n' +
       '👤 ПАЦИЕНТЫ\n' +
-      'В шапке выберите пациента. Кнопки ➕ / ✏️ / 🗑️ — добавить, переименовать, удалить. У каждого пациента свои события, измерения, лекарства и настройки.\n\n' +
+      'В шапке выберите пациента (если их много — поможет строка поиска). Кнопки ➕ / ✏️ / 🗑️ — добавить, переименовать, удалить. У каждого пациента свои события, измерения, лекарства и настройки.\n\n' +
       '↩️ ОТМЕНА УДАЛЕНИЯ\nПосле удаления появляется сообщение с кнопкой «Отменить» — 6 секунд, чтобы вернуть запись.\n\n📋 СОБЫТИЯ\n' +
       'Нажимайте кнопки для быстрой записи (Туалет, Эпизод, Сухо, Мокро и т.д.). Кнопки «Температура» и «Вес» попросят ввести значение. Кнопка ⚙️ скрывает ненужные кнопки — история при этом не удаляется.\n\n' +
       '❤️ ДАВЛЕНИЕ\n' +
@@ -2342,7 +2384,7 @@ function openHelp(){
       '💊 ЛЕКАРСТВА\n' +
       'Отмечайте приём кнопкой «Принято». Нажмите «Редактировать», чтобы добавить новый препарат или изменить существующий — время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить».\n\n' +
       '📊 СТАТИСТИКА и 📄 ОТЧЁТ\n' +
-      'Автоматический расчёт за 7 или 30 дней. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
+      'Автоматический расчёт за 3–90 дней; отчёт можно построить и за свой период — галочка «Свой период» и две даты. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
       '💾 ДАННЫЕ\n' +
       'Целевые значения АД, заметка о пациенте, экспорт в CSV/JSON, импорт, восстановление снимков, полная очистка.\n\n' +
       '🛡 РЕЗЕРВНЫЕ КОПИИ\n' +
@@ -2385,6 +2427,13 @@ document.getElementById('patientSelect').addEventListener('change', (e) => {
   render();
 });
 
+document.addEventListener('change', (e) => {
+  const id = e.target && e.target.id;
+  if (id === 'repCustom'){ state.ui.reportCustom = e.target.checked; save(); render(); return; }
+  if (id === 'repFrom'){ state.ui.reportFrom = e.target.value; save(); render(); return; }
+  if (id === 'repTo'){ state.ui.reportTo = e.target.value; save(); render(); return; }
+});
+
 document.getElementById('btnAddPatient').addEventListener('click', addPatient);
 document.getElementById('btnRenamePatient').addEventListener('click', renamePatient);
 document.getElementById('btnDeletePatient').addEventListener('click', deletePatient);
@@ -2406,6 +2455,10 @@ document.getElementById('fileCsv').addEventListener('change', async (e) => {
 });
 
 document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'patientSearch'){
+    renderPatients();
+    return;
+  }
   if (e.target && e.target.id === 'patientNote'){
     currentPatient().note = e.target.value;
     save();
