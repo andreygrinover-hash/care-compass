@@ -57,10 +57,12 @@
   .icon-btn.del:hover{opacity:1;color:var(--danger);border-color:var(--danger)}
   .patient-bar{display:flex;align-items:center;gap:6px;padding:0 12px 8px}
   .patient-label{font-size:.8rem;color:var(--muted);flex-shrink:0}
-  #patientSelect{
-    flex:1;min-width:0;padding:7px 10px;border-radius:10px;border:1px solid var(--border);
-    background:var(--bg);color:var(--text);font-size:.92rem;font-family:inherit;
+  .patient-field{
+    display:flex;align-items:center;gap:6px;flex:1;min-width:0;padding:7px 10px;border-radius:10px;
+    border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.92rem;font-family:inherit;cursor:pointer;
   }
+  .patient-field-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .patient-caret{color:var(--muted);font-size:.8rem;flex-shrink:0}
   .search-panel{padding:0 12px 10px}
   .search-panel[hidden]{display:none}
   .search-input{
@@ -261,9 +263,11 @@
     </div>
   </header>
   <div class="patient-bar">
-    <label class="patient-label" for="patientSelect">Пациент</label>
-    <select id="patientSelect"></select>
-    <button class="icon-btn" id="btnPatientSearch" title="Найти пациента" aria-label="Найти пациента">🔍</button>
+    <span class="patient-label">Пациент</span>
+    <button type="button" id="patientField" class="patient-field" aria-haspopup="listbox" aria-expanded="false">
+      <span id="patientFieldName" class="patient-field-name"></span>
+      <span class="patient-caret" aria-hidden="true">▾</span>
+    </button>
     <button class="icon-btn" id="btnAddPatient" title="Добавить пациента" aria-label="Добавить пациента">➕</button>
     <button class="icon-btn" id="btnRenamePatient" title="Переименовать" aria-label="Переименовать">✏️</button>
     <button class="icon-btn" id="btnDeletePatient" title="Удалить" aria-label="Удалить">🗑️</button>
@@ -709,11 +713,11 @@ function applyFontSize(){
 }
 
 function renderPatients(){
-  const sel = document.getElementById('patientSelect');
-  sel.innerHTML = Object.values(state.patients)
-    .map(p => '<option value="' + p.id + '"' + (p.id === state.currentPatientId ? ' selected' : '') + '>' + escapeHtml(p.name) + '</option>')
-    .join('');
-  if (!document.getElementById('patientSearchList').hasAttribute('hidden')){
+  const nameEl = document.getElementById('patientFieldName');
+  const p = state.patients[state.currentPatientId];
+  if (nameEl) nameEl.textContent = p ? p.name : '';
+  const panel = document.getElementById('patientSearchPanel');
+  if (panel && !panel.hidden){
     renderPatientSearchList();
   }
 }
@@ -2397,7 +2401,7 @@ function openHelp(){
     '<div class="modal-body">' +
       'Приложение помогает вести ежедневное наблюдение за пациентом. Все данные хранятся только в вашем браузере.\n\n' +
       '👤 ПАЦИЕНТЫ\n' +
-      'В шапке выберите пациента (при многих пациентах — кнопка 🔍). Кнопки ➕ / ✏️ / 🗑️ — добавить, переименовать, удалить. У каждого пациента свои события, измерения, лекарства и настройки.\n\n' +
+      'В шапке выберите пациента: тап по полю открывает список с поиском. Кнопки ➕ / ✏️ / 🗑️ — добавить, переименовать, удалить. У каждого пациента свои события, измерения, лекарства и настройки.\n\n' +
       '↩️ ОТМЕНА УДАЛЕНИЯ\nПосле удаления появляется сообщение с кнопкой «Отменить» — 6 секунд, чтобы вернуть запись.\n\n📋 СОБЫТИЯ\n' +
       'Нажимайте кнопки для быстрой записи (Туалет, Эпизод, Сухо, Мокро и т.д.). Кнопки «Температура» и «Вес» попросят ввести значение. Кнопка ⚙️ скрывает ненужные кнопки — история при этом не удаляется.\n\n' +
       '❤️ ДАВЛЕНИЕ\n' +
@@ -2444,10 +2448,26 @@ document.getElementById('btnFontPlus').addEventListener('click', () => {
   applyFontSize();
 });
 
-document.getElementById('patientSelect').addEventListener('change', (e) => {
-  state.currentPatientId = e.target.value;
-  save();
-  render();
+document.getElementById('patientField').addEventListener('click', () => {
+  const panel = document.getElementById('patientSearchPanel');
+  const input = document.getElementById('patientSearch');
+  const field = document.getElementById('patientField');
+  if (!panel) return;
+  const show = panel.hidden;
+  panel.hidden = !show;
+  if (field) field.setAttribute('aria-expanded', show ? 'true' : 'false');
+  if (show){
+    if (input) input.value = '';
+    renderPatientSearchList();
+    setTimeout(function(){ if (input){ try { input.focus(); } catch (err){} } }, 60);
+  }
+});
+
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('patientSearchPanel');
+  const field = document.getElementById('patientField');
+  if (!panel || panel.hidden) return;
+  if (!panel.contains(e.target) && (!field || !field.contains(e.target))) panel.hidden = true;
 });
 
 document.addEventListener('change', (e) => {
@@ -2456,18 +2476,7 @@ document.addEventListener('change', (e) => {
   if (id === 'repTo'){ state.ui.reportTo = e.target.value; save(); render(); return; }
 });
 
-document.getElementById('btnPatientSearch').addEventListener('click', () => {
-  const panel = document.getElementById('patientSearchPanel');
-  const input = document.getElementById('patientSearch');
-  if (!panel) return;
-  const show = panel.hidden;
-  panel.hidden = !show;
-  if (show){
-    if (input) input.value = '';
-    renderPatientSearchList();
-    setTimeout(function(){ if (input){ try { input.focus(); } catch (err){} } }, 60);
-  }
-});
+
 
 document.getElementById('btnAddPatient').addEventListener('click', addPatient);
 document.getElementById('btnRenamePatient').addEventListener('click', renamePatient);
@@ -2683,7 +2692,9 @@ document.addEventListener('click', async (e) => {
 
     case 'pickSuggest': {
       const panel = document.getElementById('patientSearchPanel');
+      const field = document.getElementById('patientField');
       if (panel) panel.hidden = true;
+      if (field) field.setAttribute('aria-expanded', 'false');
       const inp = document.getElementById('patientSearch');
       if (inp) inp.value = '';
       state.currentPatientId = el.dataset.id;
