@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#2563eb">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Компас заботы">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232563eb%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%2219%22%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%223.5%22%2F%3E%3Cpolygon%20points%3D%2232%2C13%2027%2C32%2037%2C32%22%20fill%3D%22%23ef4444%22%2F%3E%3Cpolygon%20points%3D%2232%2C51%2027%2C32%2037%2C32%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%222.6%22%20fill%3D%22%232563eb%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.4%22%2F%3E%3C%2Fsvg%3E">
 <title>Компас заботы</title>
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -160,6 +166,11 @@
   .toast.show{opacity:1;transform:translate(-50%,0)}
   .toast.error{background:var(--danger)}
   .toast.ok{background:var(--ok)}
+  .toast-btn{
+    margin-left:12px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.45);
+    color:#fff;border-radius:8px;padding:3px 12px;font:inherit;cursor:pointer
+  }
+  .app-footer{ text-align:center;color:var(--muted);font-size:.78rem;padding:6px 16px 24px }
   pre.report{
     white-space:pre-wrap;word-wrap:break-word;font-family:ui-monospace,Menlo,Consolas,monospace;
     font-size:.82rem;line-height:1.55;background:var(--bg);border:1px solid var(--border);
@@ -227,22 +238,24 @@
     <div class="header-actions">
       <button class="icon-btn" id="btnHelp" title="Руководство" aria-label="Руководство">❓</button>
       <button class="icon-btn" id="btnTheme" title="Переключить тему" aria-label="Тема">🌙</button>
-      <button class="icon-btn small-text" id="btnFontMinus" title="Уменьшить шрифт">A−</button>
-      <button class="icon-btn small-text" id="btnFontPlus" title="Увеличить шрифт">A+</button>
-      <button class="icon-btn" id="btnTabsConfig" title="Настроить вкладки">📋</button>
+      <button class="icon-btn small-text" id="btnFontMinus" title="Уменьшить шрифт" aria-label="Уменьшить шрифт">A−</button>
+      <button class="icon-btn small-text" id="btnFontPlus" title="Увеличить шрифт" aria-label="Увеличить шрифт">A+</button>
+      <button class="icon-btn" id="btnTabsConfig" title="Настроить вкладки" aria-label="Настроить вкладки">📋</button>
     </div>
   </header>
   <div class="patient-bar">
     <label class="patient-label" for="patientSelect">Пациент</label>
     <select id="patientSelect"></select>
-    <button class="icon-btn" id="btnAddPatient" title="Добавить пациента">➕</button>
-    <button class="icon-btn" id="btnRenamePatient" title="Переименовать">✏️</button>
-    <button class="icon-btn" id="btnDeletePatient" title="Удалить">🗑️</button>
+    <button class="icon-btn" id="btnAddPatient" title="Добавить пациента" aria-label="Добавить пациента">➕</button>
+    <button class="icon-btn" id="btnRenamePatient" title="Переименовать" aria-label="Переименовать">✏️</button>
+    <button class="icon-btn" id="btnDeletePatient" title="Удалить" aria-label="Удалить">🗑️</button>
   </div>
   <nav class="tabs" id="tabs"></nav>
 </div>
 
 <main id="view" class="view"></main>
+
+<footer class="app-footer no-print">🔒 Все данные хранятся только в вашем браузере и никуда не отправляются.</footer>
 
 <div id="modalRoot" class="modal-root"></div>
 <input type="file" id="fileJson" accept=".json,application/json" hidden>
@@ -391,6 +404,32 @@ function showToast(msg, type){
   t._h = setTimeout(() => { t.className = 'toast'; }, 3200);
 }
 
+function undoableToast(msg, undoFn){
+  let t = document.getElementById('toast');
+  if (!t){
+    t = document.createElement('div');
+    t.id = 'toast';
+    document.body.appendChild(t);
+  }
+  t.innerHTML = '';
+  const span = document.createElement('span');
+  span.textContent = msg;
+  const btn = document.createElement('button');
+  btn.className = 'toast-btn';
+  btn.type = 'button';
+  btn.textContent = 'Отменить';
+  btn.addEventListener('click', () => {
+    clearTimeout(t._h);
+    t.className = 'toast';
+    undoFn();
+  });
+  t.appendChild(span);
+  t.appendChild(btn);
+  t.className = 'toast show';
+  clearTimeout(t._h);
+  t._h = setTimeout(() => { t.className = 'toast'; }, 6000);
+}
+
 /* ============================ STATE ============================ */
 
 function newPatient(name){
@@ -493,6 +532,11 @@ function save(){
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
   } catch (e){
     console.warn('Не удалось сохранить:', e);
+    const now = Date.now();
+    if (!save._warnTs || now - save._warnTs > 30000){
+      save._warnTs = now;
+      showToast('Не удалось сохранить: память браузера переполнена. Сделайте копию данных во вкладке «Данные»', 'error');
+    }
   }
   dailySnapshot();
 }
@@ -754,7 +798,7 @@ function renderEvents(host){
     '<section class="card">' +
       '<div class="card-head">' +
         '<h2>Быстрые события</h2>' +
-        '<button class="icon-btn" data-action="configEventButtons" title="Настроить кнопки">⚙️</button>' +
+        '<button class="icon-btn" data-action="configEventButtons" title="Настроить кнопки" aria-label="Настроить кнопки">⚙️</button>' +
       '</div>' +
       '<div class="event-grid">' + (buttons || '<div class="empty">Все кнопки скрыты</div>') + '</div>' +
     '</section>' +
@@ -784,7 +828,7 @@ function renderEventsList(p){
         '<div class="row-title">' + escapeHtml(b.label) + ' ' + val + '</div>' +
         '<div class="row-sub">' + fmtDateTime(ev.ts) + '</div>' +
       '</div>' +
-      '<button class="icon-btn del" data-action="delEvent" data-id="' + ev.id + '" title="Удалить">✕</button>' +
+      '<button class="icon-btn del" data-action="delEvent" data-id="' + ev.id + '" title="Удалить" aria-label="Удалить">✕</button>' +
     '</div>';
   }).join('');
 }
@@ -921,13 +965,15 @@ function renderPressure(host){
 
   const weightChart = svgChart([{ name: 'Вес', color: '#22c55e', points: weightPts }], {});
 
+  const lastP = p.pressure.length ? p.pressure.slice().sort((a, b) => b.ts - a.ts)[0] : null;
+
   host.innerHTML =
     '<section class="card">' +
       '<div class="card-head"><h2>Измерение давления</h2></div>' +
       '<div class="form-row">' +
-        '<label class="field"><span>Верхнее</span><input id="pSys" type="number" inputmode="numeric" placeholder="120"></label>' +
-        '<label class="field"><span>Нижнее</span><input id="pDia" type="number" inputmode="numeric" placeholder="80"></label>' +
-        '<label class="field"><span>Пульс</span><input id="pPulse" type="number" inputmode="numeric" placeholder="70"></label>' +
+        '<label class="field"><span>Верхнее</span><input id="pSys" type="number" inputmode="numeric" placeholder="120" value="' + (lastP ? lastP.sys : '') + '"></label>' +
+        '<label class="field"><span>Нижнее</span><input id="pDia" type="number" inputmode="numeric" placeholder="80" value="' + (lastP ? lastP.dia : '') + '"></label>' +
+        '<label class="field"><span>Пульс</span><input id="pPulse" type="number" inputmode="numeric" placeholder="70" value="' + (lastP && lastP.pulse != null ? lastP.pulse : '') + '"></label>' +
       '</div>' +
       '<div class="btn-row"><button class="btn primary" data-action="addPressure">Сохранить измерение</button></div>' +
     '</section>' +
@@ -967,7 +1013,7 @@ function renderPressureList(list){
           ' <span class="badge ' + cls + '">' + pressureLabel(cls) + '</span></div>' +
         '<div class="row-sub">' + fmtDateTime(r.ts) + '</div>' +
       '</div>' +
-      '<button class="icon-btn del" data-action="delPressure" data-id="' + r.id + '" title="Удалить">✕</button>' +
+      '<button class="icon-btn del" data-action="delPressure" data-id="' + r.id + '" title="Удалить" aria-label="Удалить">✕</button>' +
     '</div>';
   }).join('');
 }
@@ -1038,11 +1084,13 @@ function renderSugar(host){
   const weightPts = [];
   byDayW.forEach((v, k) => weightPts.push({ t: new Date(k + 'T12:00:00').getTime(), v: avg(v) }));
 
+  const lastS = p.sugar.length ? p.sugar.slice().sort((a, b) => b.ts - a.ts)[0] : null;
+
   host.innerHTML =
     '<section class="card">' +
       '<div class="card-head"><h2>Уровень глюкозы</h2></div>' +
       '<div class="form-row">' +
-        '<label class="field"><span>Глюкоза (ммоль/л)</span><input id="sugarVal" type="number" step="0.1" inputmode="decimal" placeholder="5.5"></label>' +
+        '<label class="field"><span>Глюкоза (ммоль/л)</span><input id="sugarVal" type="number" step="0.1" inputmode="decimal" placeholder="5.5" value="' + (lastS ? lastS.value : '') + '"></label>' +
       '</div>' +
       '<div class="btn-row"><button class="btn primary" data-action="addSugar">Сохранить</button></div>' +
     '</section>' +
@@ -1080,7 +1128,7 @@ function renderSugarList(list){
           '<span class="badge ' + cls + '">' + sugarLabel(cls) + '</span></div>' +
         '<div class="row-sub">' + fmtDateTime(r.ts) + '</div>' +
       '</div>' +
-      '<button class="icon-btn del" data-action="delSugar" data-id="' + r.id + '" title="Удалить">✕</button>' +
+      '<button class="icon-btn del" data-action="delSugar" data-id="' + r.id + '" title="Удалить" aria-label="Удалить">✕</button>' +
     '</div>';
   }).join('');
 }
@@ -1931,8 +1979,20 @@ async function shareBackup(){
       showToast('Отправка отменена');
       return;
     }
-    console.warn('navigator.share failed:', err);
-    downloadFallback('Не удалось открыть меню (' + (err && err.name || 'неизвестная ошибка') + ') — файл скачан в «Загрузки»');
+    console.warn('navigator.share files failed:', err);
+    // Запасной ход: системное меню живо — отправляем копию текстом
+    try {
+      await navigator.share({ title: 'Резервная копия «Компас заботы» от ' + todayKey(), text: JSON.stringify(state) });
+      markExport();
+      showToast('Копия отправлена текстом', 'ok');
+    } catch (err2){
+      if (err2 && err2.name === 'AbortError'){
+        showToast('Отправка отменена');
+        return;
+      }
+      console.warn('navigator.share text failed:', err2);
+      downloadFallback('Не удалось открыть меню (' + (err && err.name || 'неизвестная ошибка') + ') — файл скачан в «Загрузки»');
+    }
   }
 }
 
@@ -2105,17 +2165,43 @@ async function importCsvText(text){
 
 /* ---------- JSON ---------- */
 
+function sameVal(a, b){
+  if ((a === null || a === undefined) && (b === null || b === undefined)) return true;
+  return String(a) === String(b);
+}
+
 function mergeInto(dst, src){
-  src.events.forEach(e => dst.events.push(Object.assign({}, e, { id: uid() })));
-  src.pressure.forEach(e => dst.pressure.push(Object.assign({}, e, { id: uid() })));
-  src.sugar.forEach(e => dst.sugar.push(Object.assign({}, e, { id: uid() })));
+  let added = 0, skipped = 0;
+  src.events.forEach(e => {
+    const dup = dst.events.some(x => x.ts === e.ts && x.type === e.type && sameVal(x.value, e.value));
+    if (dup){ skipped++; return; }
+    dst.events.push(Object.assign({}, e, { id: uid() }));
+    added++;
+  });
+  src.pressure.forEach(e => {
+    const dup = dst.pressure.some(x => x.ts === e.ts && Number(x.sys) === Number(e.sys) && Number(x.dia) === Number(e.dia));
+    if (dup){ skipped++; return; }
+    dst.pressure.push(Object.assign({}, e, { id: uid() }));
+    added++;
+  });
+  src.sugar.forEach(e => {
+    const dup = dst.sugar.some(x => x.ts === e.ts && sameVal(x.value, e.value));
+    if (dup){ skipped++; return; }
+    dst.sugar.push(Object.assign({}, e, { id: uid() }));
+    added++;
+  });
   src.meds.forEach(m => {
-    if (!dst.meds.some(x => x.id === m.id)) dst.meds.push(Object.assign({}, m));
+    const dup = dst.meds.some(x => x.id === m.id ||
+      (String(x.name).trim().toLowerCase() === String(m.name).trim().toLowerCase() && (x.dose || '') === (m.dose || '')));
+    if (dup){ skipped++; return; }
+    dst.meds.push(Object.assign({}, m));
+    added++;
   });
   Object.keys(src.medLog || {}).forEach(date => {
     if (!dst.medLog[date]) dst.medLog[date] = {};
     Object.assign(dst.medLog[date], src.medLog[date]);
   });
+  return { added: added, skipped: skipped };
 }
 
 async function importJsonText(text){
@@ -2136,23 +2222,29 @@ async function importJsonText(text){
 
   const imported = normalizeState(JSON.parse(JSON.stringify(data)));
 
+  let added = 0, skipped = 0;
   if (mode === 'replace'){
     state = imported;
   } else {
     Object.keys(imported.patients).forEach(id => {
       const ip = imported.patients[id];
       const existing = Object.values(state.patients).find(p => p.name === ip.name);
-      if (existing) mergeInto(existing, ip);
-      else {
+      if (existing){
+        const r = mergeInto(existing, ip);
+        added += r.added;
+        skipped += r.skipped;
+      } else {
         ip.id = uid();
         state.patients[ip.id] = ip;
+        added++;
       }
     });
   }
 
   save();
   render();
-  showToast('Импорт завершён', 'ok');
+  if (mode === 'replace') showToast('Импорт завершён: данные заменены', 'ok');
+  else showToast('Импорт завершён: новых записей ' + added + (skipped ? ', дубликатов пропущено ' + skipped : ''), 'ok');
 }
 
 /* ============================ PATIENTS ============================ */
@@ -2245,7 +2337,7 @@ function openHelp(){
       'Приложение помогает вести ежедневное наблюдение за пациентом. Все данные хранятся только в вашем браузере.\n\n' +
       '👤 ПАЦИЕНТЫ\n' +
       'В шапке выберите пациента. Кнопки ➕ / ✏️ / 🗑️ — добавить, переименовать, удалить. У каждого пациента свои события, измерения, лекарства и настройки.\n\n' +
-      '📋 СОБЫТИЯ\n' +
+      '↩️ ОТМЕНА УДАЛЕНИЯ\nПосле удаления появляется сообщение с кнопкой «Отменить» — 6 секунд, чтобы вернуть запись.\n\n📋 СОБЫТИЯ\n' +
       'Нажимайте кнопки для быстрой записи (Туалет, Эпизод, Сухо, Мокро и т.д.). Кнопки «Температура» и «Вес» попросят ввести значение. Кнопка ⚙️ скрывает ненужные кнопки — история при этом не удаляется.\n\n' +
       '❤️ ДАВЛЕНИЕ\n' +
       'Введите верхнее, нижнее и пульс — после трёх цифр курсор сам перескакивает на следующее поле. При давлении ≥180/110 появится экстренное предупреждение. История окрашивается по уровню, ниже — графики.\n\n' +
@@ -2389,9 +2481,16 @@ document.addEventListener('click', async (e) => {
 
     case 'delEvent': {
       const p = currentPatient();
-      p.events = p.events.filter(x => x.id !== el.dataset.id);
+      const idx = p.events.findIndex(x => x.id === el.dataset.id);
+      if (idx === -1) break;
+      const item = p.events.splice(idx, 1)[0];
       save();
       renderView();
+      undoableToast('Событие удалено', () => {
+        p.events.splice(Math.min(idx, p.events.length), 0, item);
+        save();
+        renderView();
+      });
       break;
     }
 
@@ -2401,9 +2500,16 @@ document.addEventListener('click', async (e) => {
 
     case 'delPressure': {
       const p = currentPatient();
-      p.pressure = p.pressure.filter(x => x.id !== el.dataset.id);
+      const idx = p.pressure.findIndex(x => x.id === el.dataset.id);
+      if (idx === -1) break;
+      const item = p.pressure.splice(idx, 1)[0];
       save();
       renderView();
+      undoableToast('Измерение удалено', () => {
+        p.pressure.splice(Math.min(idx, p.pressure.length), 0, item);
+        save();
+        renderView();
+      });
       break;
     }
 
@@ -2413,9 +2519,16 @@ document.addEventListener('click', async (e) => {
 
     case 'delSugar': {
       const p = currentPatient();
-      p.sugar = p.sugar.filter(x => x.id !== el.dataset.id);
+      const idx = p.sugar.findIndex(x => x.id === el.dataset.id);
+      if (idx === -1) break;
+      const item = p.sugar.splice(idx, 1)[0];
       save();
       renderView();
+      undoableToast('Измерение сахара удалено', () => {
+        p.sugar.splice(Math.min(idx, p.sugar.length), 0, item);
+        save();
+        renderView();
+      });
       break;
     }
 
@@ -2439,10 +2552,16 @@ document.addEventListener('click', async (e) => {
 
     case 'delMed': {
       const p = currentPatient();
-      p.meds = p.meds.filter(m => m.id !== el.dataset.id);
+      const idx = p.meds.findIndex(m => m.id === el.dataset.id);
+      if (idx === -1) break;
+      const item = p.meds.splice(idx, 1)[0];
       save();
       renderView();
-      showToast('Лекарство удалено', 'ok');
+      undoableToast('Лекарство удалено', () => {
+        p.meds.splice(Math.min(idx, p.meds.length), 0, item);
+        save();
+        renderView();
+      });
       break;
     }
 
@@ -2540,6 +2659,12 @@ async function clearAllData(){
 /* ============================ INIT ============================ */
 
 render();
+
+/* ============================ PWA ============================ */
+
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
 </script>
 </body>
 </html>
