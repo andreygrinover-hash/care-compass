@@ -61,14 +61,19 @@
     flex:1;min-width:0;padding:7px 10px;border-radius:10px;border:1px solid var(--border);
     background:var(--bg);color:var(--text);font-size:.92rem;font-family:inherit;
   }
-  .patient-search{
-    flex:0 0 96px;min-width:0;padding:7px 10px;border-radius:10px;border:1px solid var(--border);
-    background:var(--bg);color:var(--text);font-size:.92rem;font-family:inherit;
+  .search-panel{padding:0 12px 10px}
+  .search-panel[hidden]{display:none}
+  .search-input{
+    width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--border);
+    background:var(--bg);color:var(--text);font-size:.95rem;font-family:inherit;
   }
-  .patient-suggest{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 10px}
-  .patient-suggest[hidden]{display:none}
-  .sug-btn{padding:6px 10px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;font-size:.86rem;cursor:pointer}
-  .sug-btn.cur{border-color:var(--primary);color:var(--primary);font-weight:600}
+  .search-list{margin-top:8px;max-height:230px;overflow-y:auto}
+  .search-item{
+    display:block;width:100%;text-align:left;padding:10px 12px;border:none;border-radius:9px;
+    background:transparent;color:var(--text);font-family:inherit;font-size:.92rem;cursor:pointer;
+  }
+  .search-item:hover{background:var(--bg)}
+  .search-item.cur{color:var(--primary);font-weight:600}
   .tabs{
     display:flex;gap:6px;overflow-x:auto;padding:0 10px 8px;scrollbar-width:none;
   }
@@ -258,12 +263,15 @@
   <div class="patient-bar">
     <label class="patient-label" for="patientSelect">Пациент</label>
     <select id="patientSelect"></select>
-    <input id="patientSearch" class="patient-search" type="search" inputmode="search" autocomplete="off" placeholder="Поиск" aria-label="Поиск пациента">
+    <button class="icon-btn" id="btnPatientSearch" title="Найти пациента" aria-label="Найти пациента">🔍</button>
     <button class="icon-btn" id="btnAddPatient" title="Добавить пациента" aria-label="Добавить пациента">➕</button>
     <button class="icon-btn" id="btnRenamePatient" title="Переименовать" aria-label="Переименовать">✏️</button>
     <button class="icon-btn" id="btnDeletePatient" title="Удалить" aria-label="Удалить">🗑️</button>
   </div>
-  <div id="patientSuggest" class="patient-suggest" hidden></div>
+  <div id="patientSearchPanel" class="search-panel" hidden>
+    <input id="patientSearch" class="search-input" type="search" inputmode="search" autocomplete="off" placeholder="Имя пациента…" aria-label="Поиск пациента">
+    <div id="patientSearchList" class="search-list"></div>
+  </div>
   <nav class="tabs" id="tabs"></nav>
 </div>
 
@@ -705,21 +713,21 @@ function renderPatients(){
   sel.innerHTML = Object.values(state.patients)
     .map(p => '<option value="' + p.id + '"' + (p.id === state.currentPatientId ? ' selected' : '') + '>' + escapeHtml(p.name) + '</option>')
     .join('');
-  renderPatientSuggest();
+  if (!document.getElementById('patientSearchList').hasAttribute('hidden')){
+    renderPatientSearchList();
+  }
 }
 
-function renderPatientSuggest(){
-  const box = document.getElementById('patientSuggest');
-  const search = document.getElementById('patientSearch');
-  if (!box || !search) return;
-  const q = String(search.value || '').trim().toLowerCase();
-  if (!q){ box.hidden = true; box.innerHTML = ''; return; }
+function renderPatientSearchList(){
+  const box = document.getElementById('patientSearchList');
+  const input = document.getElementById('patientSearch');
+  if (!box || !input) return;
+  const q = String(input.value || '').trim().toLowerCase();
   const list = Object.values(state.patients)
-    .filter(p => String(p.name).toLowerCase().indexOf(q) !== -1);
-  box.hidden = false;
+    .filter(p => !q || String(p.name).toLowerCase().indexOf(q) !== -1);
   box.innerHTML = list.length
-    ? list.map(p => '<button type="button" class="sug-btn' + (p.id === state.currentPatientId ? ' cur' : '') + '" data-action="pickSuggest" data-id="' + p.id + '">' + escapeHtml(p.name) + (p.id === state.currentPatientId ? ' · сейчас' : '') + '</button>').join('')
-    : '<span class="muted">Никого не нашлось</span>';
+    ? list.map(p => '<button type="button" class="search-item' + (p.id === state.currentPatientId ? ' cur' : '') + '" data-action="pickSuggest" data-id="' + p.id + '">' + escapeHtml(p.name) + (p.id === state.currentPatientId ? ' — сейчас' : '') + '</button>').join('')
+    : '<div class="muted">Никого не нашлось</div>';
 }
 
 function renderTabs(){
@@ -2389,7 +2397,7 @@ function openHelp(){
     '<div class="modal-body">' +
       'Приложение помогает вести ежедневное наблюдение за пациентом. Все данные хранятся только в вашем браузере.\n\n' +
       '👤 ПАЦИЕНТЫ\n' +
-      'В шапке выберите пациента (если их много — поможет строка поиска). Кнопки ➕ / ✏️ / 🗑️ — добавить, переименовать, удалить. У каждого пациента свои события, измерения, лекарства и настройки.\n\n' +
+      'В шапке выберите пациента (при многих пациентах — кнопка 🔍). Кнопки ➕ / ✏️ / 🗑️ — добавить, переименовать, удалить. У каждого пациента свои события, измерения, лекарства и настройки.\n\n' +
       '↩️ ОТМЕНА УДАЛЕНИЯ\nПосле удаления появляется сообщение с кнопкой «Отменить» — 6 секунд, чтобы вернуть запись.\n\n📋 СОБЫТИЯ\n' +
       'Нажимайте кнопки для быстрой записи (Туалет, Эпизод, Сухо, Мокро и т.д.). Кнопки «Температура» и «Вес» попросят ввести значение. Кнопка ⚙️ скрывает ненужные кнопки — история при этом не удаляется.\n\n' +
       '❤️ ДАВЛЕНИЕ\n' +
@@ -2448,6 +2456,19 @@ document.addEventListener('change', (e) => {
   if (id === 'repTo'){ state.ui.reportTo = e.target.value; save(); render(); return; }
 });
 
+document.getElementById('btnPatientSearch').addEventListener('click', () => {
+  const panel = document.getElementById('patientSearchPanel');
+  const input = document.getElementById('patientSearch');
+  if (!panel) return;
+  const show = panel.hidden;
+  panel.hidden = !show;
+  if (show){
+    if (input) input.value = '';
+    renderPatientSearchList();
+    setTimeout(function(){ if (input){ try { input.focus(); } catch (err){} } }, 60);
+  }
+});
+
 document.getElementById('btnAddPatient').addEventListener('click', addPatient);
 document.getElementById('btnRenamePatient').addEventListener('click', renamePatient);
 document.getElementById('btnDeletePatient').addEventListener('click', deletePatient);
@@ -2470,7 +2491,7 @@ document.getElementById('fileCsv').addEventListener('change', async (e) => {
 
 document.addEventListener('input', (e) => {
   if (e.target && e.target.id === 'patientSearch'){
-    renderPatientSuggest();
+    renderPatientSearchList();
     return;
   }
   if (e.target && e.target.id === 'patientNote'){
@@ -2661,6 +2682,8 @@ document.addEventListener('click', async (e) => {
       break;
 
     case 'pickSuggest': {
+      const panel = document.getElementById('patientSearchPanel');
+      if (panel) panel.hidden = true;
       const inp = document.getElementById('patientSearch');
       if (inp) inp.value = '';
       state.currentPatientId = el.dataset.id;
