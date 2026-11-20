@@ -1224,16 +1224,26 @@ function renderMeds(host){
       body += '<div class="slot-head">' + slot.icon + ' ' + escapeHtml(slot.label) + '</div>';
       items.forEach(m => {
         const key = slot.id + '|' + m.id;
-        const taken = !!log[key];
+        const asNeeded = slot.id === 'asneeded';
+        const arr = asNeeded ? (Array.isArray(log[key]) ? log[key] : (log[key] ? [log[key]] : [])) : null;
+        const count = asNeeded ? arr.length : 0;
+        const taken = asNeeded ? count > 0 : !!log[key];
+        let info = '';
+        if (asNeeded && count){
+          info = '<div class="med-dose">✅ Принято ' + count + ' ' + pluralRu(count, 'раз', 'раза', 'раз') + ' · последний в ' + new Date(arr[arr.length - 1]).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) + '</div>';
+        } else if (!asNeeded && taken){
+          info = '<div class="med-dose">✅ Принято в ' + new Date(log[key]).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) + '</div>';
+        }
         body += '<div class="med-row' + (taken ? ' taken' : '') + '">' +
           '<div class="med-info">' +
             '<div class="med-name">' + escapeHtml(m.name) + '</div>' +
             (m.dose ? '<div class="med-dose">' + escapeHtml(m.dose) + '</div>' : '') +
-            (taken ? '<div class="med-dose">✅ Принято в ' + new Date(log[key]).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) + '</div>' : '') +
+            info +
           '</div>' +
           '<div class="med-actions">' +
             (medsEditMode ? '<button class="btn sm" data-action="editMed" data-id="' + m.id + '">Изменить</button>' : '') +
-            '<button class="btn sm ' + (taken ? '' : 'primary') + '" data-action="takeMed" data-id="' + m.id + '" data-slot="' + slot.id + '">' + (taken ? 'Отменить' : 'Принято') + '</button>' +
+            '<button class="btn sm ' + (taken && !asNeeded ? '' : 'primary') + '" data-action="takeMed" data-id="' + m.id + '" data-slot="' + slot.id + '">' + (asNeeded ? 'Принять' : (taken ? 'Снять отметку' : 'Принято')) + '</button>' +
+            (asNeeded && count ? '<button class="btn sm" data-action="undoTake" data-id="' + m.id + '" data-slot="' + slot.id + '" title="Убрать последнюю отметку" aria-label="Убрать последнюю отметку">Снять</button>' : '') +
           '</div>' +
         '</div>';
       });
@@ -1288,7 +1298,8 @@ function openMedModal(medId){
       }).join('') +
     '</div></div>' +
     '<div class="modal-actions">' +
-      '<button class="btn" data-modal-cancel>Отмена</button>' +
+      '<button class="btn" data-modal-cancel>Закрыть</button>' +
+      (med ? '<button class="btn danger" id="medStop">Отменить препарат</button>' : '') +
       '<button class="btn primary" id="medSave">Сохранить</button>' +
     '</div>'
   );
@@ -1311,6 +1322,21 @@ function openMedModal(medId){
     save(); closeModal(); renderView();
     showToast('Сохранено', 'ok');
   });
+  const stopBtn = document.getElementById('medStop');
+  if (stopBtn) stopBtn.addEventListener('click', () => {
+    med.status = 'stopped';
+    med.stoppedTs = Date.now();
+    (p.medChanges = p.medChanges || []).push({ ts: Date.now(), action: 'stopped', name: med.name, dose: med.dose || '' });
+    save(); closeModal(); renderView();
+    showToast('Препарат отменён — история приёмов сохранена', 'ok');
+  });
+}
+
+function pluralRu(n, one, few, many){
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+  return many;
 }
 
 function toggleMed(medId, slotId){
@@ -1318,8 +1344,31 @@ function toggleMed(medId, slotId){
   const tk = todayKey();
   if (!p.medLog[tk]) p.medLog[tk] = {};
   const key = slotId + '|' + medId;
-  if (p.medLog[tk][key]) delete p.medLog[tk][key];
-  else p.medLog[tk][key] = Date.now();
+  if (slotId === 'asneeded'){
+    const arr = Array.isArray(p.medLog[tk][key]) ? p.medLog[tk][key] : (p.medLog[tk][key] ? [p.medLog[tk][key]] : []);
+    arr.push(Date.now());
+    p.medLog[tk][key] = arr;
+  } else {
+    if (p.medLog[tk][key]) delete p.medLog[tk][key];
+    else p.medLog[tk][key] = Date.now();
+  }
+  save();
+  renderView();
+}
+
+function undoLastTake(medId, slotId){
+  const p = currentPatient();
+  const tk = todayKey();
+  const log = p.medLog[tk];
+  if (!log) return;
+  const key = slotId + '|' + medId;
+  if (slotId === 'asneeded'){
+    const arr = Array.isArray(log[key]) ? log[key] : (log[key] ? [log[key]] : []);
+    arr.pop();
+    if (arr.length) log[key] = arr; else delete log[key];
+  } else {
+    if (log[key]) delete log[key];
+  }
   save();
   renderView();
 }
@@ -2455,7 +2504,7 @@ function openHelp(){
       '🩸 САХАР\n' +
       'Вводите глюкозу в ммоль/л. При значениях ≤3.5 или ≥15 появляется предупреждение.\n\n' +
       '💊 ЛЕКАРСТВА\n' +
-      'Отмечайте приём кнопкой «Принято». Нажмите «Редактировать», чтобы добавить новый препарат или изменить существующий — время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Врач отменил препарат — в «Редактировать» или по кнопке «Отменить» он исчезнет из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт.\n\n' +
+      'Отмечайте приём кнопкой «Принято»; снять отметку — «Снять отметку». Препараты «По необходимости» можно принимать несколько раз за день: каждое нажатие «Принять» добавляет отметку, «Снять» убирает последнюю. Нажмите «Редактировать», чтобы добавить новый препарат или изменить существующий — время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Врач отменил препарат — в окне «Редактировать» нажмите красную кнопку «Отменить препарат»: он исчезнет из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт.\n\n' +
       '📊 СТАТИСТИКА и 📄 ОТЧЁТ\n' +
       'В «Статистике» — график динамики веса за выбранный период.\n' +
       'Автоматический расчёт за 3–90 дней; отчёт можно построить и за свой период — пункт «Свой период…» в списке периодов и две даты. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
@@ -2734,6 +2783,10 @@ document.addEventListener('click', async (e) => {
       showToast('Препарат возобновлён — приёмы считаются с сегодняшнего дня', 'ok');
       break;
     }
+
+    case 'undoTake':
+      undoLastTake(el.dataset.id, el.dataset.slot);
+      break;
 
     case 'togglePressureList':
       state.ui.pressureListExpanded = !state.ui.pressureListExpanded;
