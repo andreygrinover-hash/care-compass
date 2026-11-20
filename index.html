@@ -1060,8 +1060,8 @@ function renderPressureList(list, expanded){
       '<button class="icon-btn del" data-action="delPressure" data-id="' + r.id + '" title="Удалить" aria-label="Удалить">✕</button>' +
     '</div>';
   }).join('');
-  if (!expanded && list.length > 3){
-    return rows + '<div class="btn-row" style="margin-top:10px"><button class="btn" data-action="togglePressureList">Показать все за период (' + list.length + ')</button></div>';
+  if (list.length > 3){
+    return rows + '<div class="btn-row" style="margin-top:10px"><button class="btn" data-action="togglePressureList">' + (expanded ? 'Свернуть список' : 'Показать все за период (' + list.length + ')') + '</button></div>';
   }
   return rows;
 }
@@ -1162,8 +1162,8 @@ function renderSugarList(list, expanded){
       '<button class="icon-btn del" data-action="delSugar" data-id="' + r.id + '" title="Удалить" aria-label="Удалить">✕</button>' +
     '</div>';
   }).join('');
-  if (!expanded && list.length > 3){
-    return rows + '<div class="btn-row" style="margin-top:10px"><button class="btn" data-action="toggleSugarList">Показать все за период (' + list.length + ')</button></div>';
+  if (list.length > 3){
+    return rows + '<div class="btn-row" style="margin-top:10px"><button class="btn" data-action="toggleSugarList">' + (expanded ? 'Свернуть список' : 'Показать все за период (' + list.length + ')') + '</button></div>';
   }
   return rows;
 }
