@@ -2135,7 +2135,7 @@ async function shareBackup(){
 
   // 4. Пытаемся поделиться
   try {
-    await navigator.share({ files: [file], title: 'Резервная копия «Компас заботы»' });
+    await navigator.share({ files: [file], title: 'Резервная копия «Компас заботы»', text: 'Резервная копия «Компас заботы» от ' + todayKey() });
     markExport();
     showToast('Копия отправлена', 'ok');
   } catch (err){
