@@ -1209,7 +1209,7 @@ function renderMeds(host){
   const anyTaken = Object.keys(log).length > 0;
 
   let warn = '';
-  if (activeMeds.length && !anyTaken){
+  if (!medsEditMode && activeMeds.length && !anyTaken){
     warn = '<div class="alert warn">⚠️ Сегодня ещё нет ни одной отметки о приёме лекарств.</div>';
   }
 
@@ -1229,22 +1229,25 @@ function renderMeds(host){
         const count = asNeeded ? arr.length : 0;
         const taken = asNeeded ? count > 0 : !!log[key];
         let info = '';
-        if (asNeeded && count){
-          info = '<div class="med-dose">✅ Принято ' + count + ' ' + pluralRu(count, 'раз', 'раза', 'раз') + ' · последний в ' + new Date(arr[arr.length - 1]).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) + '</div>';
-        } else if (!asNeeded && taken){
-          info = '<div class="med-dose">✅ Принято в ' + new Date(log[key]).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) + '</div>';
+        if (!medsEditMode){
+          if (asNeeded && count){
+            info = '<div class="med-dose">✅ Принято ' + count + ' ' + pluralRu(count, 'раз', 'раза', 'раз') + ' · последний в ' + new Date(arr[arr.length - 1]).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) + '</div>';
+          } else if (!asNeeded && taken){
+            info = '<div class="med-dose">✅ Принято в ' + new Date(log[key]).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) + '</div>';
+          }
         }
-        body += '<div class="med-row' + (taken ? ' taken' : '') + '">' +
+        body += '<div class="med-row' + (taken && !medsEditMode ? ' taken' : '') + '">' +
           '<div class="med-info">' +
             '<div class="med-name">' + escapeHtml(m.name) + '</div>' +
             (m.dose ? '<div class="med-dose">' + escapeHtml(m.dose) + '</div>' : '') +
             info +
           '</div>' +
           '<div class="med-actions">' +
-            (medsEditMode ? '<button class="btn sm" data-action="editMed" data-id="' + m.id + '">Изменить</button>' : '') +
-            (medsEditMode ? '<button class="btn sm danger" data-action="stopMed" data-id="' + m.id + '" title="Убрать препарат из расписания, история приёмов сохранится">Отменить препарат</button>' : '') +
-            '<button class="btn sm ' + (taken && !asNeeded ? '' : 'primary') + '" data-action="takeMed" data-id="' + m.id + '" data-slot="' + slot.id + '">' + (asNeeded ? 'Принять' : (taken ? 'Снять отметку' : 'Принято')) + '</button>' +
-            (asNeeded && count ? '<button class="btn sm" data-action="undoTake" data-id="' + m.id + '" data-slot="' + slot.id + '" title="Убрать последнюю отметку" aria-label="Убрать последнюю отметку">Снять</button>' : '') +
+            (medsEditMode
+              ? '<button class="btn sm" data-action="editMed" data-id="' + m.id + '">Изменить</button>' +
+                '<button class="btn sm danger" data-action="stopMed" data-id="' + m.id + '" title="Убрать препарат из расписания, история приёмов сохранится">Отменить препарат</button>'
+              : '<button class="btn sm ' + (taken && !asNeeded ? '' : 'primary') + '" data-action="takeMed" data-id="' + m.id + '" data-slot="' + slot.id + '">' + (asNeeded ? 'Принять' : (taken ? 'Снять отметку' : 'Принято')) + '</button>' +
+                (asNeeded && count ? '<button class="btn sm" data-action="undoTake" data-id="' + m.id + '" data-slot="' + slot.id + '" title="Убрать последнюю отметку" aria-label="Убрать последнюю отметку">Снять</button>' : '')) +
           '</div>' +
         '</div>';
       });
@@ -2505,7 +2508,7 @@ function openHelp(){
       '🩸 САХАР\n' +
       'Вводите глюкозу в ммоль/л. При значениях ≤3.5 или ≥15 появляется предупреждение.\n\n' +
       '💊 ЛЕКАРСТВА\n' +
-      'Отмечайте приём кнопкой «Принято»; снять отметку — «Снять отметку». Препараты «По необходимости» можно принимать несколько раз за день: каждое нажатие «Принять» добавляет отметку, «Снять» убирает последнюю. Нажмите «Редактировать», чтобы добавить новый препарат или изменить существующий — время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Врач отменил препарат — нажмите красную «Отменить препарат»: она есть у каждого препарата в режиме «Редактировать» и в окне «Изменить». Препарат исчезнет из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт.\n\n' +
+      'Отмечайте приём кнопкой «Принято»; снять отметку — «Снять отметку». Препараты «По необходимости» можно принимать несколько раз за день: каждое нажатие «Принять» добавляет отметку, «Снять» убирает последнюю. Кнопка «Редактировать» — режим плана: здесь отмечать приёмы не нужно, вместо этого «Изменить» и красная «Отменить препарат», а у отменённых — «Возобновить»; отметки «Принято» в этом режиме скрыты. Время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Отмена препарата убирает его из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт.\n\n' +
       '📊 СТАТИСТИКА и 📄 ОТЧЁТ\n' +
       'В «Статистике» — график динамики веса за выбранный период.\n' +
       'Автоматический расчёт за 3–90 дней; отчёт можно построить и за свой период — пункт «Свой период…» в списке периодов и две даты. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
