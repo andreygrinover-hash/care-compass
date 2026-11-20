@@ -2095,69 +2095,105 @@ function snapshotsHtml(){
 async function shareBackup(){
   const json = JSON.stringify(state, null, 2);
   const name = 'kompas-backup-' + todayKey() + '.json';
+  const steps = [];
+  const updateStatus = () => {
+    state.ui.lastShareMsg = steps.join(' · ');
+    const el = document.getElementById('shareStatus');
+    if (el) el.textContent = state.ui.lastShareMsg;
+  };
 
   const downloadFallback = (msg) => {
     try {
       download(name, json, 'application/json');
       markExport();
       showToast(msg || 'Файл копии скачан', 'ok');
+      steps.push('скачано');
+      updateStatus();
     } catch (e){
       showToast('Не удалось сохранить копию', 'error');
+      steps.push('ошибка скачивания (' + (e && e.name || '?') + ')');
+      updateStatus();
     }
   };
 
-  // 1. Secure context и наличие API
   if (!window.isSecureContext || !navigator.share){
+    steps.push('меню недоступно');
+    updateStatus();
     downloadFallback('Меню «Поделиться» недоступно — файл скачан в «Загрузки», отправьте его оттуда');
     return;
   }
 
-  // 2. Создаём файл
-  let file = null;
+  const mkFile = (mime, ext) => new File([json], 'kompas-backup-' + todayKey() + ext, { type: mime });
+  let file = null, txtFile = null;
   try {
-    file = new File([json], name, { type: 'application/json' });
+    file = mkFile('application/json', '.json');
+    txtFile = mkFile('text/plain', '.txt');
   } catch (e){
     downloadFallback('Файл копии скачан в «Загрузки»');
     return;
   }
 
-  // 3. Поддержка шаринга именно файлов
-  let canShareFiles = false;
-  try {
-    canShareFiles = navigator.canShare && navigator.canShare({ files: [file] });
-  } catch (e){
-    canShareFiles = false;
-  }
-  if (!canShareFiles){
-    downloadFallback('Шаринг файлов не поддерживается — файл скачан в «Загрузки»');
+  const tryShare = async (opts) => {
+    try {
+      await navigator.share(opts);
+      return null;
+    } catch (err){
+      return err;
+    }
+  };
+
+  err = await tryShare({ files: [file], title: 'Резервная копия «Компас заботы»', text: 'Резервная копия «Компас заботы» от ' + todayKey() });
+  if (err === null){
+    steps.push('файл: отправлено');
+    updateStatus();
+    markExport();
+    showToast('Копия отправлена файлом', 'ok');
     return;
   }
-
-  // 4. Пытаемся поделиться
-  try {
-    await navigator.share({ files: [file], title: 'Резервная копия «Компас заботы»', text: 'Резервная копия «Компас заботы» от ' + todayKey() });
-    markExport();
-    showToast('Копия отправлена', 'ok');
-  } catch (err){
-    if (err && err.name === 'AbortError'){
-      showToast('Отправка отменена');
-      return;
-    }
-    console.warn('navigator.share files failed:', err);
-    // Запасной ход: системное меню живо — отправляем копию текстом
-    try {
-      await navigator.share({ title: 'Резервная копия «Компас заботы» от ' + todayKey(), text: JSON.stringify(state) });
-      markExport();
-      showToast('Копия отправлена текстом', 'ok');
-    } catch (err2){
-      if (err2 && err2.name === 'AbortError'){
-        showToast('Отправка отменена');
-        return;
-      }
-      console.warn('navigator.share text failed:', err2);
-      downloadFallback('Не удалось открыть меню (' + (err && err.name || 'неизвестная ошибка') + ') — файл скачан в «Загрузки»');
-    }
+  if (err && err.name === 'AbortError'){
+    steps.push('файл: отмена');
+    updateStatus();
+    showToast('Отправка отменена');
+    return;
   }
+  steps.push('файл (json): отказ (' + (err && err.name || '?') + ')');
+  updateStatus();
+
+  err = await tryShare({ files: [txtFile], title: 'Резервная копия «Компас заботы»', text: 'Резервная копия «Компас заботы» от ' + todayKey() });
+  if (err === null){
+    steps.push('файл (txt): отправлено');
+    updateStatus();
+    markExport();
+    showToast('Копия отправлена файлом (txt)', 'ok');
+    return;
+  }
+  if (err && err.name === 'AbortError'){
+    steps.push('файл (txt): отмена');
+    updateStatus();
+    showToast('Отправка отменена');
+    return;
+  }
+  steps.push('файл (txt): отказ (' + (err && err.name || '?') + ')');
+  updateStatus();
+
+  err = await tryShare({ title: 'Резервная копия «Компас заботы» от ' + todayKey(), text: JSON.stringify(state) });
+  if (err === null){
+    steps.push('текст: отправлено');
+    updateStatus();
+    markExport();
+    showToast('Копия отправлена текстом', 'ok');
+    return;
+  }
+  if (err && err.name === 'AbortError'){
+    steps.push('текст: отмена');
+    updateStatus();
+    showToast('Отправка отменена');
+    return;
+  }
+  steps.push('текст: отказ (' + (err && err.name || '?') + ')');
+  updateStatus();
+
+  downloadFallback('Не удалось открыть меню (' + (err && err.name || 'ошибка') + ') — файл скачан в «Загрузки»');
 }
 
 function restoreSnap(ts){
@@ -2196,6 +2232,7 @@ function renderData(host){
         '<button class="btn primary" data-action="exportJson">JSON · резервная копия</button>' +
         '<button class="btn primary" data-action="shareBackup">📤 Отправить копию</button>' +
       '</div>' +
+      '<div id="shareStatus" class="muted" style="margin-top:8px;font-size:.8rem">' + escapeHtml(state.ui.lastShareMsg || '') + '</div>' +
     '</section>' +
 
     '<section class="card">' +
