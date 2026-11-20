@@ -225,6 +225,7 @@
   .slot-head:first-child{margin-top:0}
   .med-row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:7px;background:var(--bg)}
   .med-row.taken{border-color:var(--ok);background:var(--ok-bg)}
+  .med-row.stopped{opacity:.55}
   .med-info{flex:1;min-width:0}
   .med-name{font-weight:600;font-size:.9rem}
   .med-dose{font-size:.78rem;color:var(--muted)}
@@ -481,6 +482,7 @@ function newPatient(name){
     sugar: [],
     meds: [],
     medLog: {},
+    medChanges: [],
     settings: { hiddenTabs: [], hiddenEventButtons: [] }
   };
 }
@@ -533,8 +535,11 @@ function normalizeState(s){
         m.slots = [m.slot || 'morning'];
       }
       if (!m.created) m.created = Date.now();
+      m.status = (m.status === 'stopped') ? 'stopped' : 'active';
+      m.stoppedTs = (typeof m.stoppedTs === 'number') ? m.stoppedTs : null;
       return m;
     });
+    p.medChanges = Array.isArray(p.medChanges) ? p.medChanges : [];
     Object.keys(p.medLog).forEach(day => {
       const dayLog = p.medLog[day];
       const next = {};
@@ -1007,21 +1012,10 @@ function renderPressure(host){
     diaPts.push({ t: t, v: avg(v.dia) });
   });
 
-  const byDayW = new Map();
-  p.events.filter(e => e.type === 'weight' && e.ts >= from && e.value != null).forEach(e => {
-    const k = todayKey(new Date(e.ts));
-    if (!byDayW.has(k)) byDayW.set(k, []);
-    byDayW.get(k).push(Number(e.value));
-  });
-  const weightPts = [];
-  byDayW.forEach((v, k) => weightPts.push({ t: new Date(k + 'T12:00:00').getTime(), v: avg(v) }));
-
   const pressureChart = svgChart(
     [{ name: 'Верхнее', color: '#ef4444', points: sysPts }, { name: 'Нижнее', color: '#3b82f6', points: diaPts }],
     { yMin: 40, yMax: 200 }
   );
-
-  const weightChart = svgChart([{ name: 'Вес', color: '#22c55e', points: weightPts }], {});
 
   host.innerHTML =
     '<section class="card">' +
@@ -1035,30 +1029,25 @@ function renderPressure(host){
     '</section>' +
 
     '<section class="card">' +
-      '<div class="card-head">' +
-        '<h2>История измерений</h2>' +
-        '<select class="inline-select" data-change="pressurePeriod">' +
-          PERIODS.map(d => '<option value="' + d + '"' + (days === d ? ' selected' : '') + '>' + d + ' дн.</option>').join('') +
-        '</select>' +
-      '</div>' +
-      '<div class="list">' + renderPressureList(list) + '</div>' +
-    '</section>' +
-
-    '<section class="card">' +
       '<div class="card-head"><h2>Среднее давление по дням</h2></div>' +
       pressureChart +
       legend([{ name: 'Верхнее', color: '#ef4444' }, { name: 'Нижнее', color: '#3b82f6' }]) +
     '</section>' +
 
     '<section class="card">' +
-      '<div class="card-head"><h2>Динамика веса</h2></div>' +
-      weightChart +
+      '<div class="card-head">' +
+        '<h2>История измерений</h2>' +
+        '<select class="inline-select" data-change="pressurePeriod">' +
+          PERIODS.map(d => '<option value="' + d + '"' + (days === d ? ' selected' : '') + '>' + d + ' дн.</option>').join('') +
+        '</select>' +
+      '</div>' +
+      '<div class="list">' + renderPressureList(list, state.ui.pressureListExpanded) + '</div>' +
     '</section>';
 }
 
-function renderPressureList(list){
+function renderPressureList(list, expanded){
   if (!list.length) return '<div class="empty">Нет измерений за период</div>';
-  return list.map(r => {
+  const rows = (expanded ? list : list.slice(0, 3)).map(r => {
     const cls = pressureClass(r.sys, r.dia);
     return '<div class="row">' +
       '<span class="row-icon">❤️</span>' +
@@ -1071,6 +1060,10 @@ function renderPressureList(list){
       '<button class="icon-btn del" data-action="delPressure" data-id="' + r.id + '" title="Удалить" aria-label="Удалить">✕</button>' +
     '</div>';
   }).join('');
+  if (!expanded && list.length > 3){
+    return rows + '<div class="btn-row" style="margin-top:10px"><button class="btn" data-action="togglePressureList">Показать все за период (' + list.length + ')</button></div>';
+  }
+  return rows;
 }
 
 function submitPressure(){
@@ -1130,15 +1123,6 @@ function renderSugar(host){
   const sugarPts = p.sugar.filter(x => x.ts >= from)
     .map(x => ({ t: x.ts, v: Number(x.value) }));
 
-  const byDayW = new Map();
-  p.events.filter(e => e.type === 'weight' && e.ts >= from && e.value != null).forEach(e => {
-    const k = todayKey(new Date(e.ts));
-    if (!byDayW.has(k)) byDayW.set(k, []);
-    byDayW.get(k).push(Number(e.value));
-  });
-  const weightPts = [];
-  byDayW.forEach((v, k) => weightPts.push({ t: new Date(k + 'T12:00:00').getTime(), v: avg(v) }));
-
   host.innerHTML =
     '<section class="card">' +
       '<div class="card-head"><h2>Уровень глюкозы</h2></div>' +
@@ -1149,29 +1133,24 @@ function renderSugar(host){
     '</section>' +
 
     '<section class="card">' +
+      '<div class="card-head"><h2>Динамика сахара</h2></div>' +
+      svgChart([{ name: 'Глюкоза', color: '#8b5cf6', points: sugarPts }], { yMin: 0 }) +
+    '</section>' +
+
+    '<section class="card">' +
       '<div class="card-head">' +
         '<h2>История измерений</h2>' +
         '<select class="inline-select" data-change="sugarPeriod">' +
           PERIODS.map(d => '<option value="' + d + '"' + (days === d ? ' selected' : '') + '>' + d + ' дн.</option>').join('') +
         '</select>' +
       '</div>' +
-      '<div class="list">' + renderSugarList(list) + '</div>' +
-    '</section>' +
-
-    '<section class="card">' +
-      '<div class="card-head"><h2>Динамика сахара</h2></div>' +
-      svgChart([{ name: 'Глюкоза', color: '#8b5cf6', points: sugarPts }], { yMin: 0 }) +
-    '</section>' +
-
-    '<section class="card">' +
-      '<div class="card-head"><h2>Динамика веса</h2></div>' +
-      svgChart([{ name: 'Вес', color: '#22c55e', points: weightPts }], {}) +
+      '<div class="list">' + renderSugarList(list, state.ui.sugarListExpanded) + '</div>' +
     '</section>';
 }
 
-function renderSugarList(list){
+function renderSugarList(list, expanded){
   if (!list.length) return '<div class="empty">Нет измерений за период</div>';
-  return list.map(r => {
+  const rows = (expanded ? list : list.slice(0, 3)).map(r => {
     const cls = sugarClass(Number(r.value));
     return '<div class="row">' +
       '<span class="row-icon">🩸</span>' +
@@ -1183,6 +1162,10 @@ function renderSugarList(list){
       '<button class="icon-btn del" data-action="delSugar" data-id="' + r.id + '" title="Удалить" aria-label="Удалить">✕</button>' +
     '</div>';
   }).join('');
+  if (!expanded && list.length > 3){
+    return rows + '<div class="btn-row" style="margin-top:10px"><button class="btn" data-action="toggleSugarList">Показать все за период (' + list.length + ')</button></div>';
+  }
+  return rows;
 }
 
 function submitSugar(){
@@ -1220,22 +1203,23 @@ function submitSugar(){
 
 function renderMeds(host){
   const p = currentPatient();
+  const activeMeds = p.meds.filter(m => m.status !== 'stopped');
   const tk = todayKey();
   const log = p.medLog[tk] || {};
   const anyTaken = Object.keys(log).length > 0;
 
   let warn = '';
-  if (p.meds.length && !anyTaken){
+  if (activeMeds.length && !anyTaken){
     warn = '<div class="alert warn">⚠️ Сегодня ещё нет ни одной отметки о приёме лекарств.</div>';
   }
 
   let body = '';
-  if (!p.meds.length){
-    body = '<div class="empty">План приёма не задан.</div>' +
+  if (!activeMeds.length){
+    body = '<div class="empty">' + (p.meds.length ? 'Все препараты отменены — их можно возобновить ниже.' : 'План приёма не задан.') + '</div>' +
       (medsEditMode ? '<div class="btn-row" style="margin-top:10px"><button class="btn primary" data-action="addMed">➕ Добавить лекарство</button></div>' : '');
   } else {
     SLOTS.forEach(slot => {
-      const items = p.meds.filter(m => m.slots.indexOf(slot.id) !== -1);
+      const items = activeMeds.filter(m => m.slots.indexOf(slot.id) !== -1);
       if (!items.length) return;
       body += '<div class="slot-head">' + slot.icon + ' ' + escapeHtml(slot.label) + '</div>';
       items.forEach(m => {
@@ -1254,9 +1238,28 @@ function renderMeds(host){
         '</div>';
       });
     });
-    if (medsEditMode){
-      body += '<div class="btn-row" style="margin-top:12px"><button class="btn primary" data-action="addMed">➕ Добавить лекарство</button></div>';
-    }
+  }
+
+  const stopped = p.meds.filter(m => m.status === 'stopped');
+  if (stopped.length){
+    body += '<div class="slot-head" style="margin-top:14px">⏸ Отменённые препараты</div>';
+    stopped.forEach(m => {
+      body += '<div class="med-row stopped">' +
+        '<div class="med-info">' +
+          '<div class="med-name">' + escapeHtml(m.name) + '</div>' +
+          (m.dose ? '<div class="med-dose">' + escapeHtml(m.dose) + '</div>' : '') +
+          (m.stoppedTs ? '<div class="med-dose">отменён: ' + fmtDate(m.stoppedTs) + '</div>' : '') +
+        '</div>' +
+        '<div class="med-actions">' +
+          (medsEditMode ? '<button class="btn sm" data-action="editMed" data-id="' + m.id + '">Изменить</button>' : '') +
+          '<button class="btn sm primary" data-action="restartMed" data-id="' + m.id + '">Возобновить</button>' +
+        '</div>' +
+      '</div>';
+    });
+  }
+
+  if (medsEditMode){
+    body += '<div class="btn-row" style="margin-top:12px"><button class="btn primary" data-action="addMed">➕ Добавить лекарство</button></div>';
   }
 
   host.innerHTML =
@@ -1301,7 +1304,9 @@ function openMedModal(medId){
       med.name = name; med.dose = dose; med.slots = slots;
       if (!med.created) med.created = Date.now();
     } else {
-      p.meds.push({ id: uid(), name: name, dose: dose, slots: slots, created: Date.now() });
+      const nm = { id: uid(), name: name, dose: dose, slots: slots, created: Date.now() };
+      p.meds.push(nm);
+      (p.medChanges = p.medChanges || []).push({ ts: Date.now(), action: 'added', name: nm.name, dose: nm.dose || '' });
     }
     save(); closeModal(); renderView();
     showToast('Сохранено', 'ok');
@@ -1384,6 +1389,11 @@ function computeStats(days, fromTs, toTs){
         medStart.setHours(0, 0, 0, 0);
         if (dayStart < medStart.getTime()) return;
       }
+      if (m.status === 'stopped' && m.stoppedTs != null){
+        const stopDay = new Date(m.stoppedTs);
+        stopDay.setHours(0, 0, 0, 0);
+        if (dayStart > stopDay.getTime()) return;
+      }
       m.slots.forEach(slotId => {
         if (slotId === 'asneeded') return;
         totalDoses++;
@@ -1430,6 +1440,16 @@ function renderStats(host){
     : 'нет данных';
   const weightVal = (st.weightLast !== null) ? fmtNum(st.weightLast) + ' кг' : '—';
 
+  const byDayW = new Map();
+  p.events.filter(e => e.type === 'weight' && e.ts >= st.from && e.value != null).forEach(e => {
+    const k = todayKey(new Date(e.ts));
+    if (!byDayW.has(k)) byDayW.set(k, []);
+    byDayW.get(k).push(Number(e.value));
+  });
+  const weightPts = [];
+  byDayW.forEach((v, k) => weightPts.push({ t: new Date(k + 'T12:00:00').getTime(), v: avg(v) }));
+  const weightChart = svgChart([{ name: 'Вес', color: '#22c55e', points: weightPts }], {});
+
   host.innerHTML =
     '<section class="card">' +
       '<div class="card-head">' +
@@ -1460,6 +1480,11 @@ function renderStats(host){
         statCard('Головные боли', String(st.headaches), '') +
         statCard('Отказ от еды', String(st.refusals), '') +
       '</div>' +
+    '</section>' +
+
+    '<section class="card">' +
+      '<div class="card-head"><h2>Динамика веса</h2></div>' +
+      weightChart +
     '</section>';
 }
 
@@ -1674,14 +1699,25 @@ function buildReport(days){
     L.push('');
   }
 
-  if (p.meds.length){
+  const activeMeds = p.meds.filter(m => m.status !== 'stopped');
+  const medChanges = (p.medChanges || []).filter(c => c.ts >= st.from && c.ts <= to);
+  if (activeMeds.length || medChanges.length){
     sectT('ЛЕКАРСТВА');
-    L.push('   План приёма:');
-    p.meds.forEach(m => {
-      const labels = (m.slots || [m.slot]).map(id => (SLOTS.find(s => s.id === id) || { label: id }).label).join(', ');
-      L.push('   ' + labels + ': ' + m.name + (m.dose ? ' (' + m.dose + ')' : ''));
-    });
-    L.push('   Отметок «Принято» за период: ' + (st.totalDoses - st.missedMeds) + ' из ' + st.totalDoses + ' · пропущено: ' + st.missedMeds + ' (пропуски считаются с момента добавления препарата в план)');
+    if (activeMeds.length){
+      L.push('   План приёма:');
+      activeMeds.forEach(m => {
+        const labels = (m.slots || [m.slot]).map(id => (SLOTS.find(s => s.id === id) || { label: id }).label).join(', ');
+        L.push('   ' + labels + ': ' + m.name + (m.dose ? ' (' + m.dose + ')' : ''));
+      });
+    } else {
+      L.push('   Действующих препаратов нет.');
+    }
+    L.push('   Отметок «Принято» за период: ' + (st.totalDoses - st.missedMeds) + ' из ' + st.totalDoses + ' · пропущено: ' + st.missedMeds + ' (пропуски считаются по действующим препаратам)');
+    const actNames = { stopped: 'отменён', restarted: 'возобновлён', added: 'назначен' };
+    if (medChanges.length){
+      L.push('   Изменения за период:');
+      medChanges.forEach(c => L.push('     ' + fmtDateTime(c.ts) + ' — ' + c.name + (c.dose ? ' (' + c.dose + ')' : '') + ': ' + (actNames[c.action] || c.action)));
+    }
   } else {
     L.push('   План приёма не задан.');
   }
@@ -1887,13 +1923,23 @@ function buildReportHtml(days){
     H.push('<ul class="rep-list rep-days">' + dayHtml.join('') + '</ul>');
   }
 
-  if (p.meds.length){
+  const activeMeds = p.meds.filter(m => m.status !== 'stopped');
+  const medChanges = (p.medChanges || []).filter(c => c.ts >= st.from && c.ts <= to);
+  if (activeMeds.length || medChanges.length){
     sect('Лекарства');
-    H.push('<ul class="rep-list">' + p.meds.map(m => {
-      const labels = (m.slots || [m.slot]).map(id => (SLOTS.find(s => s.id === id) || { label: id }).label).join(', ');
-      return '<li><b>' + labels + '</b>: ' + escapeHtml(m.name) + (m.dose ? ' (' + escapeHtml(m.dose) + ')' : '') + '</li>';
-    }).join('') + '</ul>');
-    H.push('<p>Отметок «Принято»: <b>' + (st.totalDoses - st.missedMeds) + '</b> из ' + st.totalDoses + ' · пропущено: <b>' + st.missedMeds + '</b> (пропуски считаются с момента добавления препарата в план)</p>');
+    if (activeMeds.length){
+      H.push('<ul class="rep-list">' + activeMeds.map(m => {
+        const labels = (m.slots || [m.slot]).map(id => (SLOTS.find(s => s.id === id) || { label: id }).label).join(', ');
+        return '<li><b>' + labels + '</b>: ' + escapeHtml(m.name) + (m.dose ? ' (' + escapeHtml(m.dose) + ')' : '') + '</li>';
+      }).join('') + '</ul>');
+    } else {
+      H.push('<p class="rep-empty">Действующих препаратов нет.</p>');
+    }
+    H.push('<p>Отметок «Принято»: <b>' + (st.totalDoses - st.missedMeds) + '</b> из ' + st.totalDoses + ' · пропущено: <b>' + st.missedMeds + '</b> (пропуски считаются по действующим препаратам)</p>');
+    const actNames = { stopped: 'отменён', restarted: 'возобновлён', added: 'назначен' };
+    if (medChanges.length){
+      H.push('<ul class="rep-list">' + medChanges.map(c => '<li>' + fmtDateTime(c.ts) + ' — <b>' + escapeHtml(c.name) + '</b>' + (c.dose ? ' (' + escapeHtml(c.dose) + ')' : '') + ': ' + (actNames[c.action] || escapeHtml(c.action)) + '</li>').join('') + '</ul>');
+    }
   } else {
     H.push('<p class="rep-empty">План приёма не задан.</p>');
   }
@@ -2409,8 +2455,9 @@ function openHelp(){
       '🩸 САХАР\n' +
       'Вводите глюкозу в ммоль/л. При значениях ≤3.5 или ≥15 появляется предупреждение.\n\n' +
       '💊 ЛЕКАРСТВА\n' +
-      'Отмечайте приём кнопкой «Принято». Нажмите «Редактировать», чтобы добавить новый препарат или изменить существующий — время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить».\n\n' +
+      'Отмечайте приём кнопкой «Принято». Нажмите «Редактировать», чтобы добавить новый препарат или изменить существующий — время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Врач отменил препарат — в «Редактировать» или по кнопке «Отменить» он исчезнет из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт.\n\n' +
       '📊 СТАТИСТИКА и 📄 ОТЧЁТ\n' +
+      'В «Статистике» — график динамики веса за выбранный период.\n' +
       'Автоматический расчёт за 3–90 дней; отчёт можно построить и за свой период — пункт «Свой период…» в списке периодов и две даты. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
       '💾 ДАННЫЕ\n' +
       'Целевые значения АД, заметка о пациенте, экспорт в CSV/JSON, импорт, восстановление снимков, полная очистка.\n\n' +
@@ -2660,6 +2707,45 @@ document.addEventListener('click', async (e) => {
       });
       break;
     }
+
+    case 'stopMed': {
+      const p = currentPatient();
+      const med = p.meds.find(x => x.id === el.dataset.id);
+      if (!med || med.status === 'stopped') break;
+      med.status = 'stopped';
+      med.stoppedTs = Date.now();
+      (p.medChanges = p.medChanges || []).push({ ts: Date.now(), action: 'stopped', name: med.name, dose: med.dose || '' });
+      save();
+      renderView();
+      showToast('Препарат отменён — история приёмов сохранена', 'ok');
+      break;
+    }
+
+    case 'restartMed': {
+      const p = currentPatient();
+      const med = p.meds.find(x => x.id === el.dataset.id);
+      if (!med || med.status !== 'stopped') break;
+      med.status = 'active';
+      med.stoppedTs = null;
+      med.created = Date.now();
+      (p.medChanges = p.medChanges || []).push({ ts: Date.now(), action: 'restarted', name: med.name, dose: med.dose || '' });
+      save();
+      renderView();
+      showToast('Препарат возобновлён — приёмы считаются с сегодняшнего дня', 'ok');
+      break;
+    }
+
+    case 'togglePressureList':
+      state.ui.pressureListExpanded = !state.ui.pressureListExpanded;
+      save();
+      renderView();
+      break;
+
+    case 'toggleSugarList':
+      state.ui.sugarListExpanded = !state.ui.sugarListExpanded;
+      save();
+      renderView();
+      break;
 
     case 'takeMed':
       toggleMed(el.dataset.id, el.dataset.slot);
