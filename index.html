@@ -282,7 +282,7 @@
 
 <main id="view" class="view"></main>
 
-<footer class="app-footer no-print">🔒 Все данные хранятся только в вашем браузере и никуда не отправляются.</footer>
+<footer class="app-footer no-print">🔒 Все данные хранятся только в вашем браузере и никуда не отправляются.<span id="appVer"></span></footer>
 
 <div id="modalRoot" class="modal-root"></div>
 <input type="file" id="fileJson" accept=".json,application/json" hidden>
@@ -2561,6 +2561,7 @@ function openHelp(){
   openModal(
     '<h3>❓ Руководство</h3>' +
     '<div class="modal-body">' +
+      '<p class="muted" style="margin:0 0 10px">Версия: ' + APP_VERSION + '</p>' +
       'Приложение помогает вести ежедневное наблюдение за пациентом. Все данные хранятся только в вашем браузере.\n\n' +
       '👤 ПАЦИЕНТЫ\n' +
       'В шапке выберите пациента: тап по полю открывает список с поиском. Кнопки ➕ / ✏️ / 🗑️ — добавить, переименовать, удалить. У каждого пациента свои события, измерения, лекарства и настройки.\n\n' +
@@ -2588,7 +2589,12 @@ function openHelp(){
   );
 }
 
+const APP_VERSION = 'v16 · 20.11.2026';
+
 /* ============================ GLOBAL EVENTS ============================ */
+
+const appVerEl = document.getElementById('appVer');
+if (appVerEl) appVerEl.textContent = ' · ' + APP_VERSION;
 
 document.getElementById('btnHelp').addEventListener('click', openHelp);
 document.getElementById('btnTabsConfig').addEventListener('click', openTabsConfig);
