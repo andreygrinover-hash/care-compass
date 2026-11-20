@@ -441,7 +441,7 @@ function showToast(msg, type){
   t.textContent = msg;
   t.className = 'toast show' + (type ? ' ' + type : '');
   clearTimeout(t._h);
-  t._h = setTimeout(() => { t.className = 'toast'; }, 3200);
+  t._h = setTimeout(() => { t.className = 'toast'; }, 8000);
 }
 
 function undoableToast(msg, undoFn){
@@ -2593,7 +2593,7 @@ function openHelp(){
   );
 }
 
-const APP_VERSION = 'v16 · 20.11.2026';
+const APP_VERSION = 'v18 · 20.11.2026';
 
 /* ============================ GLOBAL EVENTS ============================ */
 
