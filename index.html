@@ -524,7 +524,7 @@ function normalizeState(s){
   for (const id of Object.keys(s.patients)){
     const p = s.patients[id] || {};
     p.id = id;
-    p.name = typeof p.name === 'string' && p.name.trim() ? p.name : 'Пациент';
+    p.name = (typeof p.name === 'string' && p.name.trim() && p.name.trim() !== 'false') ? p.name : 'Пациент';
     p.note = typeof p.note === 'string' ? p.note : '';
     p.events = Array.isArray(p.events) ? p.events : [];
     p.pressure = Array.isArray(p.pressure) ? p.pressure : [];
@@ -540,6 +540,7 @@ function normalizeState(s){
       return m;
     });
     p.medChanges = Array.isArray(p.medChanges) ? p.medChanges : [];
+    p.medLog = (p.medLog && typeof p.medLog === 'object') ? p.medLog : {};
     Object.keys(p.medLog).forEach(day => {
       const dayLog = p.medLog[day];
       const next = {};
@@ -553,7 +554,6 @@ function normalizeState(s){
     });
     let gs = parseInt(p.goalSys, 10); if (isNaN(gs)) gs = 140; p.goalSys = Math.min(200, Math.max(90, gs));
     let gd = parseInt(p.goalDia, 10); if (isNaN(gd)) gd = 90; p.goalDia = Math.min(120, Math.max(50, gd));
-    p.medLog = (p.medLog && typeof p.medLog === 'object') ? p.medLog : {};
     p.settings = p.settings || {};
     p.settings.hiddenTabs = Array.isArray(p.settings.hiddenTabs) ? p.settings.hiddenTabs : [];
     p.settings.hiddenEventButtons = Array.isArray(p.settings.hiddenEventButtons) ? p.settings.hiddenEventButtons : [];
@@ -2459,7 +2459,8 @@ async function deletePatient(){
 
 function promptModal(title, defaultValue){
   return new Promise((resolve) => {
-    modalResolve = resolve;
+    const done = (val) => resolve((val === false || val === null) ? null : val);
+    modalResolve = done;
     openModal(
       '<h3>' + escapeHtml(title) + '</h3>' +
       '<label class="field"><span>Название</span><input id="promptInput" type="text" value="' + escapeHtml(defaultValue || '') + '"></label>' +
@@ -2478,7 +2479,7 @@ function promptModal(title, defaultValue){
     const obs = new MutationObserver(() => {
       if (!modalRoot.classList.contains('open')){
         obs.disconnect();
-        if (modalResolve === resolve){
+        if (modalResolve === done){
           const r = modalResolve; modalResolve = null;
           if (r) r(null);
         }
