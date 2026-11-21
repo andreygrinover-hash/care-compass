@@ -492,6 +492,7 @@ function defaultState(){
   return {
     currentPatientId: p.id,
     patients: { [p.id]: p },
+    medCatalog: [],
     ui: {
       theme: 'light',
       fontSize: 16,
@@ -559,6 +560,13 @@ function normalizeState(s){
     p.settings.hiddenEventButtons = Array.isArray(p.settings.hiddenEventButtons) ? p.settings.hiddenEventButtons : [];
     s.patients[id] = p;
   }
+
+
+  const catSeen = {}; const catMerged = [];
+  if (!Array.isArray(s.medCatalog)) s.medCatalog = [];
+  for (const nm of s.medCatalog){ const n = (typeof nm === 'string') ? nm.trim() : ''; if (!n) continue; const k = n.toLowerCase(); if (!catSeen[k]){ catSeen[k] = 1; catMerged.push(n); } }
+  for (const id of Object.keys(s.patients)){ for (const m of (s.patients[id].meds || [])){ const n = (m && typeof m.name === 'string') ? m.name.trim() : ''; if (!n) continue; const k = n.toLowerCase(); if (!catSeen[k]){ catSeen[k] = 1; catMerged.push(n); } } }
+  s.medCatalog = catMerged;
 
   if (!s.patients[s.currentPatientId]) s.currentPatientId = Object.keys(s.patients)[0];
   return s;
@@ -1288,13 +1296,51 @@ function renderMeds(host){
     '</section>';
 }
 
+function medCatalogSorted(){
+  return (state.medCatalog || []).slice().sort((a, b) => a.localeCompare(b, 'ru'));
+}
+function addToCatalog(name){
+  const nm = (name || '').trim();
+  if (!nm) return false;
+  const k = nm.toLowerCase();
+  state.medCatalog = state.medCatalog || [];
+  if (state.medCatalog.some(x => x.toLowerCase() === k)) return false;
+  state.medCatalog.push(nm);
+  return true;
+}
+function removeCatalogItem(name){
+  const k = (name || '').toLowerCase();
+  state.medCatalog = (state.medCatalog || []).filter(x => x.toLowerCase() !== k);
+}
+function medCatalogHas(name){
+  const k = (name || '').toLowerCase();
+  return (state.medCatalog || []).some(x => x.toLowerCase() === k);
+}
+function catalogChipsHtml(){
+  const list = medCatalogSorted();
+  if (!list.length) return '<span class="muted">Список пуст — наполнится, когда добавите лекарства пациентам.</span>';
+  return list.map(n => '<button class="btn" data-action="delCatalogMed" data-name="' + escapeHtml(n) + '" title="Убрать из общего списка">✕ ' + escapeHtml(n) + '</button>').join(' ');
+}
 function openMedModal(medId){
   const p = currentPatient();
   const med = medId ? p.meds.find(m => m.id === medId) : null;
+  const list = medCatalogSorted();
+  const curName = med ? med.name : '';
+  const curInList = medCatalogHas(curName);
+  const sameMed = (v) => curName && v.toLowerCase() === curName.toLowerCase();
+  const opts = list.map(n => '<option value="' + escapeHtml(n) + '"' + (sameMed(n) ? ' selected' : '') + '>' + escapeHtml(n) + '</option>').join('');
+  const extraOpt = (med && !curInList) ? '<option value="' + escapeHtml(curName) + '" selected>' + escapeHtml(curName) + '</option>' : '';
+  const pickOnly = med ? '' : '<option value="">— выберите из списка —</option>';
+  const newOpt = '<option value="__new__">➕ Другое (вписать)…</option>';
   openModal(
     '<h3>' + (med ? 'Редактировать лекарство' : 'Новое лекарство') + '</h3>' +
-    '<label class="field"><span>Название</span><input id="medName" type="text" placeholder="Например, Аспирин" value="' + (med ? escapeHtml(med.name) : '') + '"></label>' +
-    '<label class="field"><span>Дозировка</span><input id="medDose" type="text" placeholder="Например, 100 мг" value="' + (med ? escapeHtml(med.dose || '') : '') + '"></label>' +
+    '<label class="field"><span>Лекарство (общий список)</span>' +
+      '<select id="medPick">' + pickOnly + extraOpt + opts + newOpt + '</select>' +
+    '</label>' +
+    '<div class="field" id="medNameWrap" style="display:none"><span>Новое название</span>' +
+      '<input id="medName" type="text" placeholder="Например, Аспирин" value="">' +
+    '</div>' +
+    '<label class="field"><span>Дозировка (индивидуальная)</span><input id="medDose" type="text" placeholder="Например, 100 мг" value="' + (med ? escapeHtml(med.dose || '') : '') + '"></label>' +
     '<div class="field"><span>Время приёма (можно выбрать несколько)</span><div class="checkbox-list">' +
       SLOTS.map(s => {
         const on = med ? (med.slots || [med.slot]).indexOf(s.id) !== -1 : false;
@@ -1307,11 +1353,31 @@ function openMedModal(medId){
       '<button class="btn primary" id="medSave">Сохранить</button>' +
     '</div>'
   );
-  document.getElementById('medName').focus();
+  const pickEl = document.getElementById('medPick');
+  const wrapEl = document.getElementById('medNameWrap');
+  const nameEl = document.getElementById('medName');
+  const doseEl = document.getElementById('medDose');
+  const sync = () => {
+    const showName = (pickEl.value === '__new__');
+    wrapEl.style.display = showName ? '' : 'none';
+    if (showName) nameEl.focus();
+  };
+  if (!med && !list.length) pickEl.value = '__new__';
+  pickEl.addEventListener('change', () => {
+    sync();
+    const v = pickEl.value;
+    if (v !== '__new__' && v && !med && doseEl && !doseEl.value.trim()){
+      const same = p.meds.filter(m => m.name.toLowerCase() === v.toLowerCase()).pop();
+      if (same && same.dose) doseEl.value = same.dose;
+    }
+  });
+  sync();
+  if (pickEl.value !== '__new__') pickEl.focus();
   document.getElementById('medSave').addEventListener('click', () => {
-    const name = document.getElementById('medName').value.trim();
-    if (!name){ showToast('Введите название', 'error'); return; }
-    const dose = document.getElementById('medDose').value.trim();
+    const name = (pickEl.value === '__new__') ? nameEl.value.trim() : pickEl.value;
+    if (!name){ showToast('Выберите лекарство или впишите новое', 'error'); return; }
+    addToCatalog(name);
+    const dose = doseEl.value.trim();
     const slots = Array.prototype.slice.call(document.querySelectorAll('[data-slot-id]'))
       .filter(x => x.checked).map(x => x.dataset.slotId);
     if (!slots.length){ showToast('Выберите хотя бы одно время приёма', 'error'); return; }
@@ -2254,6 +2320,14 @@ function renderData(host){
     '</section>' +
 
     '<section class="card">' +
+      '<div class="card-head"><h2>Общий список лекарств</h2></div>' +
+      '<p class="muted" style="margin:0 0 10px">Список общий для всех пациентов: название вносится один раз, дозировка каждому своя. Удаление из списка не затрагивает назначенные препараты.</p>' +
+      '<div class="btn-row">' +
+        catalogChipsHtml() +
+      '</div>' +
+    '</section>' +
+
+    '<section class="card">' +
       '<div class="card-head"><h2>Экспорт</h2></div>' +
       '<div class="btn-row">' +
         '<button class="btn" data-action="exportCsvOne">CSV · текущий пациент</button>' +
@@ -2450,6 +2524,7 @@ async function importJsonText(text){
   ]);
   if (!mode) return;
 
+  const oldCat = (state && Array.isArray(state.medCatalog)) ? state.medCatalog.slice() : [];
   const imported = normalizeState(JSON.parse(JSON.stringify(data)));
 
   let added = 0, skipped = 0;
@@ -2473,6 +2548,10 @@ async function importJsonText(text){
 
   save();
   render();
+  const seenCat = {}; const mergedCat = [];
+  for (const nm of oldCat.concat(state.medCatalog || [])){ const k = nm.toLowerCase(); if (!seenCat[k]){ seenCat[k] = 1; mergedCat.push(nm); } }
+  state.medCatalog = mergedCat;
+
   if (mode === 'replace') showToast('Импорт завершён: данные заменены', 'ok');
   else showToast('Импорт завершён: новых записей ' + added + (skipped ? ', дубликатов пропущено ' + skipped : ''), 'ok');
 }
@@ -2576,7 +2655,7 @@ function openHelp(){
       '🩸 САХАР\n' +
       'Вводите глюкозу в ммоль/л. При значениях ≤3.5 или ≥15 появляется предупреждение.\n\n' +
       '💊 ЛЕКАРСТВА\n' +
-      'Отмечайте приём кнопкой «Принято»; снять отметку — «Снять отметку». Препараты «По необходимости» можно принимать несколько раз за день: каждое нажатие «Принять» добавляет отметку, «Снять» убирает последнюю. Кнопка «Редактировать» — режим плана: здесь отмечать приёмы не нужно, вместо этого «Изменить» и красная «Отменить препарат», а у отменённых — «Возобновить»; отметки «Принято» в этом режиме скрыты. Время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Отмена препарата убирает его из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт.\n\n' +
+      'Отмечайте приём кнопкой «Принято»; снять отметку — «Снять отметку». Препараты «По необходимости» можно принимать несколько раз за день: каждое нажатие «Принять» добавляет отметку, «Снять» убирает последнюю. Кнопка «Редактировать» — режим плана: здесь отмечать приёмы не нужно, вместо этого «Изменить» и красная «Отменить препарат», а у отменённых — «Возобновить»; отметки «Принято» в этом режиме скрыты. Время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Отмена препарата убирает его из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт. Названия лекарств — общий список для всех пациентов: выбирайте препарат из списка; новое название впишите через «Другое (вписать)…» — оно попадёт в список (управление — вкладка «Данные»).\n\n' +
       '📊 СТАТИСТИКА и 📄 ОТЧЁТ\n' +
       'В «Статистике» — график динамики веса за выбранный период.\n' +
       'Автоматический расчёт за 3–90 дней; отчёт можно построить и за свой период — пункт «Свой период…» в списке периодов и две даты. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
@@ -2593,7 +2672,7 @@ function openHelp(){
   );
 }
 
-const APP_VERSION = 'v18 · 20.11.2026';
+const APP_VERSION = 'v19 · 21.11.2026';
 
 /* ============================ GLOBAL EVENTS ============================ */
 
@@ -2924,6 +3003,17 @@ document.addEventListener('click', async (e) => {
       save();
       render();
       break;
+
+    case 'delCatalogMed': {
+      const catName = el.dataset.name || '';
+      const cat = state.medCatalog || [];
+      const ci = cat.findIndex(x => x.toLowerCase() === catName.toLowerCase());
+      if (ci === -1) break;
+      const removed = cat.splice(ci, 1)[0];
+      save(); render();
+      undoableToast('«' + removed + '» убрано из списка', () => { addToCatalog(removed); save(); render(); });
+      break;
+    }
 
     case 'shareBackup':
       shareBackup();
