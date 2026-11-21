@@ -245,6 +245,11 @@
     .card{box-shadow:none;border:none;padding:0}
     pre.report{max-height:none;border:none;background:#fff;font-size:11pt}
   }
+  .take-edit{
+    background:none;border:none;padding:2px 6px;font-size:13px;color:inherit;opacity:.55;
+    cursor:pointer;vertical-align:baseline;
+  }
+  .take-edit:hover{opacity:1}
 </style>
 </head>
 <body>
@@ -1239,9 +1244,11 @@ function renderMeds(host){
         let info = '';
         if (!medsEditMode){
           if (asNeeded && count){
-            info = '<div class="med-dose">✅ Принято ' + count + ' ' + pluralRu(count, 'раз', 'раза', 'раз') + ' · последний в ' + new Date(arr[arr.length - 1]).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) + '</div>';
+            info = '<div class="med-dose">✅ Принято ' + count + ' ' + pluralRu(count, 'раз', 'раза', 'раз') + ' · последний в ' + new Date(arr[arr.length - 1]).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) +
+              ' <button class="take-edit" data-action="editTakeTime" data-id="' + m.id + '" data-slot="asneeded" title="Изменить время последней отметки" aria-label="Изменить время последней отметки">✏️</button></div>';
           } else if (!asNeeded && taken){
-            info = '<div class="med-dose">✅ Принято в ' + new Date(log[key]).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) + '</div>';
+            info = '<div class="med-dose">✅ Принято в ' + new Date(log[key]).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) +
+              ' <button class="take-edit" data-action="editTakeTime" data-id="' + m.id + '" data-slot="' + slot.id + '" title="Изменить время отметки" aria-label="Изменить время отметки">✏️</button></div>';
           }
         }
         body += '<div class="med-row' + (taken && !medsEditMode ? ' taken' : '') + '">' +
@@ -1287,7 +1294,9 @@ function renderMeds(host){
   host.innerHTML =
     '<section class="card">' +
       '<div class="card-head">' +
-        '<h2>Приём лекарств · ' + escapeHtml(fmtDate(Date.now())) + '</h2>' +
+        '<h2>' + (medsEditMode
+          ? 'План приёма лекарств'
+          : 'Приём лекарств · ' + escapeHtml(fmtDate(Date.now()))) + '</h2>' +
         (medsEditMode
           ? '<button class="btn primary sm" data-action="medsDone">✔ Готово</button>'
           : '<button class="btn sm" data-action="medsEdit">✏️ Редактировать</button>') +
@@ -1479,6 +1488,55 @@ function undoLastTake(medId, slotId){
   }
   save();
   renderView();
+}
+
+function timeHM(ts){
+  const d = new Date(ts);
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+function editTakeTime(medId, slotId){
+  const p = currentPatient();
+  const tk = todayKey();
+  const log = p.medLog[tk] || {};
+  const key = slotId + '|' + medId;
+  let cur;
+  if (slotId === 'asneeded'){
+    const arr = Array.isArray(log[key]) ? log[key] : (log[key] ? [log[key]] : []);
+    if (!arr.length) return;
+    cur = arr[arr.length - 1];
+  } else {
+    cur = log[key];
+    if (!cur) return;
+  }
+  const med = p.meds.find(x => x.id === medId);
+  openModal(
+    '<h3>Изменить время приёма</h3>' +
+    (med ? '<div class="modal-body" style="margin-bottom:10px">' + escapeHtml(med.name) + '</div>' : '') +
+    '<label class="field"><span>Время (сегодня)</span><input id="takeTimeInput" type="time" value="' + timeHM(cur) + '"></label>' +
+    '<div class="modal-actions">' +
+      '<button class="btn" data-modal-cancel>Отмена</button>' +
+      '<button class="btn primary" id="takeTimeOk">Сохранить</button>' +
+    '</div>'
+  );
+  const inp = document.getElementById('takeTimeInput');
+  document.getElementById('takeTimeOk').addEventListener('click', () => {
+    const v = (inp.value || '').trim();
+    const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(v);
+    if (!m){ showToast('Введите время в формате ЧЧ:ММ', 'error'); return; }
+    const d = new Date();
+    d.setHours(+m[1], +m[2], 0, 0);
+    const ts = d.getTime();
+    if (slotId === 'asneeded'){
+      const arr = Array.isArray(log[key]) ? log[key] : (log[key] ? [log[key]] : []);
+      arr[arr.length - 1] = ts;
+      p.medLog[tk][key] = arr;
+    } else {
+      p.medLog[tk][key] = ts;
+    }
+    save(); closeModal(); renderView();
+    showToast('Время отметки изменено', 'ok');
+  });
 }
 
 /* ============================ STATISTICS ============================ */
@@ -2693,7 +2751,7 @@ function openHelp(){
       '🩸 САХАР\n' +
       'Вводите глюкозу в ммоль/л. При значениях ≤3.5 или ≥15 появляется предупреждение.\n\n' +
       '💊 ЛЕКАРСТВА\n' +
-      'Отмечайте приём кнопкой «Принято»; снять отметку — «Снять отметку». Препараты «По необходимости» можно принимать несколько раз за день: каждое нажатие «Принять» добавляет отметку, «Снять» убирает последнюю. Кнопка «Редактировать» — режим плана: здесь отмечать приёмы не нужно, вместо этого «Изменить» и красная «Отменить препарат», а у отменённых — «Возобновить»; отметки «Принято» в этом режиме скрыты. Время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Отмена препарата убирает его из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт. Названия лекарств — общий список для всех пациентов: выбирайте препарат из списка; новое название впишите через «Другое (вписать)…» — оно попадёт в список (управление — вкладка «Данные»). Один и тот же препарат нельзя назначить дважды: если он уже есть у пациента (в том числе среди отменённых), приложение подскажет его изменить или возобновить. Кнопка «Удалить препарат» в окне «Изменить» убирает его совсем — вместе с отметками приёма (6 секунд на отмену); пользуйтесь ею для ошибочно добавленных записей.\n\n' +
+      'Отмечайте приём кнопкой «Принято»; снять отметку — «Снять отметку». Препараты «По необходимости» можно принимать несколько раз за день: каждое нажатие «Принять» добавляет отметку, «Снять» убирает последнюю. Если отметили не вовремя или забыли отметить сразу — тап по маленькому ✏️ рядом со строкой «Принято» позволяет вписать реальное время (только для сегодняшних отметок; у «По необходимости» правится последняя отметка). Кнопка «Редактировать» открывает «План приёма лекарств»: здесь отмечать приёмы не нужно, вместо этого «Изменить» и красная «Отменить препарат», а у отменённых — «Возобновить»; отметки «Принято» в этом режиме скрыты. Время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Отмена препарата убирает его из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт. Названия лекарств — общий список для всех пациентов: выбирайте препарат из списка; новое название впишите через «Другое (вписать)…» — оно попадёт в список (управление — вкладка «Данные»). Один и тот же препарат нельзя назначить дважды: если он уже есть у пациента (в том числе среди отменённых), приложение подскажет его изменить или возобновить. Кнопка «Удалить препарат» в окне «Изменить» убирает его совсем — вместе с отметками приёма (6 секунд на отмену); пользуйтесь ею для ошибочно добавленных записей.\n\n' +
       '📊 СТАТИСТИКА и 📄 ОТЧЁТ\n' +
       'В «Статистике» — график динамики веса за выбранный период.\n' +
       'Автоматический расчёт за 3–90 дней; отчёт можно построить и за свой период — пункт «Свой период…» в списке периодов и две даты. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
@@ -2710,7 +2768,7 @@ function openHelp(){
   );
 }
 
-const APP_VERSION = 'v21 · 21.11.2026';
+const APP_VERSION = 'v23 · 21.11.2026';
 
 /* ============================ GLOBAL EVENTS ============================ */
 
@@ -2980,6 +3038,10 @@ document.addEventListener('click', async (e) => {
 
     case 'undoTake':
       undoLastTake(el.dataset.id, el.dataset.slot);
+      break;
+
+    case 'editTakeTime':
+      editTakeTime(el.dataset.id, el.dataset.slot);
       break;
 
     case 'togglePressureList':
