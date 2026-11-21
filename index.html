@@ -1349,7 +1349,8 @@ function openMedModal(medId){
     '</div></div>' +
     '<div class="modal-actions">' +
       '<button class="btn" data-modal-cancel>Закрыть</button>' +
-      (med ? '<button class="btn danger" id="medStop">Отменить препарат</button>' : '') +
+      (med ? '<button class="btn danger" id="medStop" title="Убрать из расписания, история приёмов сохранится">Отменить препарат</button>' +
+            '<button class="btn danger" id="medDelete" title="Полностью удалить препарат и его отметки (можно отменить)">Удалить препарат</button>' : '') +
       '<button class="btn primary" id="medSave">Сохранить</button>' +
     '</div>'
   );
@@ -1376,6 +1377,15 @@ function openMedModal(medId){
   document.getElementById('medSave').addEventListener('click', () => {
     const name = (pickEl.value === '__new__') ? nameEl.value.trim() : pickEl.value;
     if (!name){ showToast('Выберите лекарство или впишите новое', 'error'); return; }
+    const dupe = p.meds.find(m => (m === med) ? false : m.name.toLowerCase() === name.toLowerCase());
+    if (dupe){
+      if (dupe.status === 'stopped'){
+        showToast('«' + name + '» уже есть среди отменённых препаратов — нажмите «Возобновить» в блоке «Отменённые препараты»', 'error');
+      } else {
+        showToast('«' + name + '» уже назначен (доза: ' + (dupe.dose || 'не указана') + ') — поправьте его через «Изменить»', 'error');
+      }
+      return;
+    }
     addToCatalog(name);
     const dose = doseEl.value.trim();
     const slots = Array.prototype.slice.call(document.querySelectorAll('[data-slot-id]'))
@@ -1399,6 +1409,34 @@ function openMedModal(medId){
     (p.medChanges = p.medChanges || []).push({ ts: Date.now(), action: 'stopped', name: med.name, dose: med.dose || '' });
     save(); closeModal(); renderView();
     showToast('Препарат отменён — история приёмов сохранена', 'ok');
+  });
+  const delBtn = document.getElementById('medDelete');
+  if (delBtn) delBtn.addEventListener('click', () => {
+    const idx = p.meds.indexOf(med);
+    if (idx === -1) return;
+    const removedMed = med;
+    const removedLogs = {};
+    Object.keys(p.medLog).forEach(day => {
+      const dayLog = p.medLog[day] || {};
+      const next = {};
+      Object.keys(dayLog).forEach(k => {
+        if (k.split('|')[1] === removedMed.id){
+          removedLogs[day] = removedLogs[day] || {};
+          removedLogs[day][k] = dayLog[k];
+        } else next[k] = dayLog[k];
+      });
+      p.medLog[day] = next;
+    });
+    p.meds.splice(idx, 1);
+    save(); closeModal(); renderView();
+    undoableToast('«' + removedMed.name + '» удалён вместе с его отметками приёма', () => {
+      p.meds.splice(Math.min(idx, p.meds.length), 0, removedMed);
+      Object.keys(removedLogs).forEach(day => {
+        p.medLog[day] = p.medLog[day] || {};
+        Object.keys(removedLogs[day]).forEach(k => { p.medLog[day][k] = removedLogs[day][k]; });
+      });
+      save(); renderView();
+    });
   });
 }
 
@@ -2655,7 +2693,7 @@ function openHelp(){
       '🩸 САХАР\n' +
       'Вводите глюкозу в ммоль/л. При значениях ≤3.5 или ≥15 появляется предупреждение.\n\n' +
       '💊 ЛЕКАРСТВА\n' +
-      'Отмечайте приём кнопкой «Принято»; снять отметку — «Снять отметку». Препараты «По необходимости» можно принимать несколько раз за день: каждое нажатие «Принять» добавляет отметку, «Снять» убирает последнюю. Кнопка «Редактировать» — режим плана: здесь отмечать приёмы не нужно, вместо этого «Изменить» и красная «Отменить препарат», а у отменённых — «Возобновить»; отметки «Принято» в этом режиме скрыты. Время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Отмена препарата убирает его из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт. Названия лекарств — общий список для всех пациентов: выбирайте препарат из списка; новое название впишите через «Другое (вписать)…» — оно попадёт в список (управление — вкладка «Данные»).\n\n' +
+      'Отмечайте приём кнопкой «Принято»; снять отметку — «Снять отметку». Препараты «По необходимости» можно принимать несколько раз за день: каждое нажатие «Принять» добавляет отметку, «Снять» убирает последнюю. Кнопка «Редактировать» — режим плана: здесь отмечать приёмы не нужно, вместо этого «Изменить» и красная «Отменить препарат», а у отменённых — «Возобновить»; отметки «Принято» в этом режиме скрыты. Время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Отмена препарата убирает его из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт. Названия лекарств — общий список для всех пациентов: выбирайте препарат из списка; новое название впишите через «Другое (вписать)…» — оно попадёт в список (управление — вкладка «Данные»). Один и тот же препарат нельзя назначить дважды: если он уже есть у пациента (в том числе среди отменённых), приложение подскажет его изменить или возобновить. Кнопка «Удалить препарат» в окне «Изменить» убирает его совсем — вместе с отметками приёма (6 секунд на отмену); пользуйтесь ею для ошибочно добавленных записей.\n\n' +
       '📊 СТАТИСТИКА и 📄 ОТЧЁТ\n' +
       'В «Статистике» — график динамики веса за выбранный период.\n' +
       'Автоматический расчёт за 3–90 дней; отчёт можно построить и за свой период — пункт «Свой период…» в списке периодов и две даты. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
@@ -2672,7 +2710,7 @@ function openHelp(){
   );
 }
 
-const APP_VERSION = 'v19 · 21.11.2026';
+const APP_VERSION = 'v21 · 21.11.2026';
 
 /* ============================ GLOBAL EVENTS ============================ */
 
