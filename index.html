@@ -249,6 +249,7 @@
     background:none;border:none;padding:2px 6px;font-size:13px;color:inherit;opacity:.55;
     cursor:pointer;vertical-align:baseline;
   }
+  .walk-status{margin-top:10px;font-size:.92rem;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
   .take-edit:hover{opacity:1}
 </style>
 </head>
@@ -324,11 +325,14 @@ const EVENT_BUTTONS = [
   { type:'refuse',   label:'Отказ от еды',    icon:'🍽️' },
   { type:'headache', label:'Головная боль',   icon:'🤕' },
   { type:'fall',     label:'Падение',         icon:'⚠️' },
+  { type:'walk',   label:'Прогулка',       icon:'🚶' },
   { type:'temp',     label:'Температура',     icon:'🌡️', kind:'value', unit:'°C', step:0.1 },
   { type:'weight',   label:'Вес',             icon:'⚖️', kind:'value', unit:'кг', step:0.1 }
 ];
 
 const EVENT_MAP = Object.fromEntries(EVENT_BUTTONS.map(b => [b.type, b]));
+const ICON_CHOICES = ['🚶','🌳','☀️','🌙','🛏️','🍎','🍽️','💊','💧','🚿','🦷','⚡','😊','😟','😴','🎨','📖','🎵','🧩','💬','🧠','❤️','💪','🧘','📱','🎁','✅','⏰','🌡️','👶'];
+
 
 const SLOTS = [
   { id:'morning',  label:'Утро',              icon:'🌅' },
@@ -573,6 +577,20 @@ function normalizeState(s){
   for (const id of Object.keys(s.patients)){ for (const m of (s.patients[id].meds || [])){ const n = (m && typeof m.name === 'string') ? m.name.trim() : ''; if (!n) continue; const k = n.toLowerCase(); if (!catSeen[k]){ catSeen[k] = 1; catMerged.push(n); } } }
   s.medCatalog = catMerged;
 
+  if (!Array.isArray(s.customEvents)) s.customEvents = [];
+  const ceSeen = {};
+  s.customEvents = s.customEvents.filter(c => {
+    if (!c || typeof c !== 'object') return false;
+    if (typeof c.id !== 'string' || !c.id) return false;
+    const nn = (typeof c.name === 'string') ? c.name.trim() : '';
+    if (!nn) return false;
+    c.name = nn.slice(0, 40);
+    c.icon = (typeof c.icon === 'string' && c.icon.trim()) ? c.icon.trim() : '•';
+    c.enabled = (c.enabled === false) ? false : true;
+    if (ceSeen[c.id]) return false;
+    ceSeen[c.id] = 1;
+    return true;
+  });
   if (!s.patients[s.currentPatientId]) s.currentPatientId = Object.keys(s.patients)[0];
   return s;
 }
@@ -858,11 +876,25 @@ function legend(items){
 }
 
 /* ============================ TAB: EVENTS ============================ */
+function walkStatusHtml(p){
+  const k = todayKey(new Date());
+  const recs = p.events.filter(e => e.type === 'walk' && todayKey(new Date(e.ts)) === k);
+  if (!recs.length) return '';
+  const n = recs.length;
+  const last = recs.reduce((a, b) => (b.ts > a.ts ? b : a));
+  const m10 = n % 10, m100 = n % 100;
+  const word = (m10 === 1 && m100 !== 11) ? 'раз' : (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? 'раза' : 'раз';
+  return '<div class="walk-status">🚶 Сегодня: ' + n + ' ' + word + ' · последний в ' + timeHM(last.ts) +
+    '<button class="take-edit" data-action="editWalkTime" title="Изменить время последней отметки" aria-label="Изменить время">✏️</button></div>';
+}
+
 
 function renderEvents(host){
   const p = currentPatient();
   const hidden = p.settings.hiddenEventButtons || [];
-  const visible = EVENT_BUTTONS.filter(b => hidden.indexOf(b.type) === -1);
+  const visible = EVENT_BUTTONS.filter(b => hidden.indexOf(b.type) === -1)
+    .concat((state.customEvents || []).filter(c => c.enabled && hidden.indexOf(c.id) === -1)
+      .map(c => ({ type: c.id, label: c.name, icon: c.icon })));
 
   const buttons = visible.map(b => {
     const isValue = b.kind === 'value';
@@ -877,6 +909,7 @@ function renderEvents(host){
         '<button class="icon-btn" data-action="configEventButtons" title="Настроить кнопки" aria-label="Настроить кнопки">⚙️</button>' +
       '</div>' +
       '<div class="event-grid">' + (buttons || '<div class="empty">Все кнопки скрыты</div>') + '</div>' +
+      walkStatusHtml(p) +
     '</section>' +
     '<section class="card">' +
       '<div class="card-head"><h2>Журнал событий</h2><span class="muted">' + p.events.length + ' записей</span></div>' +
@@ -894,7 +927,11 @@ function renderEventsList(p){
   const list = p.events.slice().sort((a, b) => b.ts - a.ts).slice(0, 150);
   if (!list.length) return '<div class="empty">Пока нет событий</div>';
   return list.map(ev => {
-    const b = EVENT_MAP[ev.type] || { label: ev.type, icon: '•' };
+    let b = EVENT_MAP[ev.type];
+    if (!b){
+      const cc = (state.customEvents || []).find(x => x.id === ev.type);
+      b = cc ? { label: cc.name, icon: cc.icon } : (ev.type.indexOf('cust') === 0 ? { label: 'Своё событие', icon: '•' } : { label: ev.type, icon: '•' });
+    }
     const val = (ev.value !== null && ev.value !== undefined)
       ? '<span class="row-val">' + escapeHtml(String(ev.value)) + (b.unit ? ' ' + escapeHtml(b.unit) : '') + '</span>'
       : '';
@@ -944,6 +981,7 @@ function openValueEventModal(type){
 function openEventButtonsConfig(){
   const p = currentPatient();
   const hidden = p.settings.hiddenEventButtons || [];
+  const customs = state.customEvents || [];
   openModal(
     '<h3>Кнопки событий</h3>' +
     '<div class="checkbox-list">' +
@@ -951,17 +989,82 @@ function openEventButtonsConfig(){
         '<label class="check"><input type="checkbox" data-ev-type="' + b.type + '"' + (hidden.indexOf(b.type) === -1 ? ' checked' : '') + '>' +
         '<span>' + b.icon + ' ' + escapeHtml(b.label) + '</span></label>'
       ).join('') +
+      customs.map(c =>
+        '<label class="check"><input type="checkbox" data-ev-type="' + c.id + '"' + (c.enabled ? ' checked' : '') + '>' +
+        '<span>' + c.icon + ' ' + escapeHtml(c.name) + '</span></label>' +
+        '<button class="icon-btn small-text" data-action="editCustom" data-id="' + c.id + '" title="Изменить название и значок" aria-label="Изменить">✏️</button>' +
+        '<button class="icon-btn del" data-action="delCustom" data-id="' + c.id + '" title="Удалить событие (отметки сохранятся)" aria-label="Удалить">✕</button>'
+      ).join('') +
     '</div>' +
     '<div class="modal-actions">' +
+      '<button class="btn sm" id="btnAddCustom"' + (customs.length >= 5 ? ' disabled title="Максимум 5 событий"' : '') + '>➕ Добавить событие (' + customs.length + '/5)</button>' +
       '<button class="btn" data-modal-cancel>Отмена</button>' +
       '<button class="btn primary" id="saveEvBtns">Сохранить</button>' +
     '</div>'
   );
+  const addBtn = document.getElementById('btnAddCustom');
+  if (addBtn) addBtn.addEventListener('click', () => openCustomEventModal(null));
+  Array.prototype.forEach.call(document.querySelectorAll('[data-action="editCustom"]'), b =>
+    b.addEventListener('click', () => openCustomEventModal(b.dataset.id)));
+  Array.prototype.forEach.call(document.querySelectorAll('[data-action="delCustom"]'), b =>
+    b.addEventListener('click', () => deleteCustomFlow(b.dataset.id)));
   document.getElementById('saveEvBtns').addEventListener('click', () => {
     const boxes = Array.prototype.slice.call(document.querySelectorAll('[data-ev-type]'));
-    p.settings.hiddenEventButtons = boxes.filter(x => !x.checked).map(x => x.dataset.evType);
+    p.settings.hiddenEventButtons = boxes.filter(x => !x.checked && x.dataset.evType.indexOf('cust') !== 0).map(x => x.dataset.evType);
+    boxes.forEach(x => {
+      if (x.dataset.evType.indexOf('cust') === 0){
+        const c = (state.customEvents || []).find(y => y.id === x.dataset.evType);
+        if (c) c.enabled = !!x.checked;
+      }
+    });
     save(); closeModal(); render();
     showToast('Настройки кнопок сохранены', 'ok');
+  });
+}
+
+function openCustomEventModal(id){
+  const c = id ? (state.customEvents || []).find(x => x.id === id) : null;
+  if (id && !c) return;
+  const icon = c ? c.icon : ICON_CHOICES[0];
+  openModal(
+    '<h3>' + (c ? '✏️ Изменить событие' : '➕ Новое событие') + '</h3>' +
+    '<label class="field"><span>Название (до 40 символов)</span>' +
+      '<input id="custName" maxlength="40" inputmode="text" autocomplete="off" value="' + (c ? escapeHtml(c.name) : '') + '" placeholder="Например: Сон днём, Приём воды"></label>' +
+    '<label class="field"><span>Значок</span>' +
+      '<select id="custIcon">' + ICON_CHOICES.map(ic => '<option value="' + ic + '"' + (ic === icon ? ' selected' : '') + '>' + ic + '</option>').join('') + '</select></label>' +
+    '<div class="modal-actions"><button class="btn" data-modal-cancel>Отмена</button><button class="btn primary" id="saveCustom">Сохранить</button></div>'
+  );
+  const nameInp = document.getElementById('custName');
+  try { nameInp.focus(); } catch (err) {}
+  document.getElementById('saveCustom').addEventListener('click', () => {
+    const nm = nameInp.value.trim();
+    if (!nm){ showToast('Введите название события', 'error'); return; }
+    const ic = document.getElementById('custIcon').value;
+    if (c){ c.name = nm; c.icon = ic; }
+    else {
+      if ((state.customEvents || []).length >= 5){ showToast('Можно добавить не более 5 своих событий', 'error'); return; }
+      state.customEvents.push({ id: 'cust' + Date.now(), name: nm, icon: ic, enabled: true });
+    }
+    save(); closeModal(); openEventButtonsConfig();
+    showToast(c ? 'Событие изменено' : 'Событие добавлено', 'ok');
+  });
+}
+
+function deleteCustomFlow(id){
+  const i = (state.customEvents || []).findIndex(c => c.id === id);
+  if (i === -1) return;
+  const c = state.customEvents[i];
+  openModal(
+    '<h3>Удалить событие «' + escapeHtml(c.name) + '»?</h3>' +
+    '<p class="muted">Событие исчезнет с панели и из отчёта. Существующие отметки сохранятся в журнале событий.</p>' +
+    '<div class="modal-actions"><button class="btn" data-modal-cancel>Отмена</button><button class="btn danger" id="delCustomOk">Удалить</button></div>'
+  );
+  document.getElementById('delCustomOk').addEventListener('click', () => {
+    state.customEvents.splice(i, 1);
+    const p0 = currentPatient();
+    p0.settings.hiddenEventButtons = (p0.settings.hiddenEventButtons || []).filter(x => x !== id);
+    save(); closeModal(); render();
+    showToast('Событие удалено. Его отметки сохранены', 'ok');
   });
 }
 
@@ -1578,6 +1681,7 @@ function computeStats(days, fromTs, toTs){
   const falls = ev.filter(e => e.type === 'fall').length;
   const headaches = ev.filter(e => e.type === 'headache').length;
   const refusals = ev.filter(e => e.type === 'refuse').length;
+  const walks = ev.filter(e => e.type === 'walk').length;
 
   const avgSys = pr.length ? avg(pr.map(x => x.sys)) : null;
   const avgDia = pr.length ? avg(pr.map(x => x.dia)) : null;
@@ -1633,7 +1737,7 @@ function computeStats(days, fromTs, toTs){
     eventsTotal: ev.length,
     episodes: episodes.length,
     bySlot: bySlot,
-    dry: dry, wet: wet, good: good, bad: bad,
+    dry: dry, wet: wet, good: good, bad: bad, walks: walks,
     falls: falls, headaches: headaches, refusals: refusals,
     pressureCount: pr.length,
     avgSys: avgSys, avgDia: avgDia,
@@ -1853,9 +1957,14 @@ function buildReport(days){
     if (st.falls) cnt.push('падения: ' + st.falls);
     if (st.headaches) cnt.push('головная боль: ' + st.headaches);
     if (st.refusals) cnt.push('отказ от еды: ' + st.refusals);
+    if (st.walks) cnt.push('прогулки: ' + st.walks);
     L.push('   Всего записей: ' + st.eventsTotal + ' · эпизодов: ' + st.episodes +
       (st.episodes ? ' (утро ' + st.bySlot.morning + ', день ' + st.bySlot.day + ', вечер ' + st.bySlot.evening + ', ночь ' + st.bySlot.night + ')' : ''));
     L.push('   ' + (cnt.join(' · ') || 'прочих событий нет'));
+    const customReport = (state.customEvents || []).filter(c => c.enabled)
+      .map(c => ({ name: c.name, n: ev.filter(e => e.type === c.id).length }))
+      .filter(x => x.n > 0);
+    if (customReport.length) L.push('   ' + customReport.map(x => escapeHtml(x.name) + ': ' + x.n).join(' · '));
   }
   L.push('');
 
@@ -2080,8 +2189,13 @@ function buildReportHtml(days){
     if (st.falls) cnt.push('падения: ' + st.falls);
     if (st.headaches) cnt.push('головная боль: ' + st.headaches);
     if (st.refusals) cnt.push('отказ от еды: ' + st.refusals);
+    if (st.walks) cnt.push('прогулки: ' + st.walks);
     H.push('<p>Всего записей: ' + st.eventsTotal + ' · эпизодов: ' + st.episodes + (st.episodes ? ' (утро ' + st.bySlot.morning + ', день ' + st.bySlot.day + ', вечер ' + st.bySlot.evening + ', ночь ' + st.bySlot.night + ')' : '') + '</p>');
     H.push('<p>' + (cnt.join(' · ') || 'прочих событий нет') + '</p>');
+    const customReportH = (state.customEvents || []).filter(c => c.enabled)
+      .map(c => ({ name: c.name, n: ev.filter(e => e.type === c.id).length }))
+      .filter(x => x.n > 0);
+    if (customReportH.length) H.push('<p>' + customReportH.map(x => escapeHtml(x.name) + ': ' + x.n).join(' · ') + '</p>');
   }
 
   const byDay = new Map();
@@ -2755,7 +2869,10 @@ function openHelp(){
       '👤 ПАЦИЕНТЫ\n' +
       'В шапке выберите пациента: тап по полю открывает список с поиском. Кнопки ➕ / ✏️ / 🗑️ — добавить, переименовать, удалить. У каждого пациента свои события, измерения, лекарства и настройки.\n\n' +
       '↩️ ОТМЕНА УДАЛЕНИЯ\nПосле удаления появляется сообщение с кнопкой «Отменить» — 6 секунд, чтобы вернуть запись.\n\n📋 СОБЫТИЯ\n' +
-      'Нажимайте кнопки для быстрой записи (Туалет, Эпизод, Сухо, Мокро и т.д.). Кнопки «Температура» и «Вес» попросят ввести значение. Кнопка ⚙️ скрывает ненужные кнопки — история при этом не удаляется.\n\n' +
+      'Нажимайте кнопки для быстрой записи (Туалет, Эпизод, Сухо, Мокро и т.д.). Кнопки «Температура» и «Вес» попросят ввести значение. '
+        + 'Кнопка «Прогулка» — отметка с временем, отмечать можно несколько раз за день; значок ✏️ у строки «Сегодня: N раз» меняет время последней отметки. '
+        + 'Кнопка ⚙️: скрытие ненужных кнопок (история при этом не удаляется) и управление своими событиями — можно добавить до 5 со своим значком. '
+        + 'Своё событие попадает в отчёт, только пока включено и есть записи; при выключении или удалении существующие отметки сохраняются.\n\n' +
       '❤️ ДАВЛЕНИЕ\n' +
       'Введите верхнее, нижнее и пульс — после трёх цифр курсор сам перескакивает на следующее поле. При давлении ≥180/110 появится экстренное предупреждение. История окрашивается по уровню, ниже — графики.\n\n' +
       '🩸 САХАР\n' +
@@ -2778,7 +2895,7 @@ function openHelp(){
   );
 }
 
-const APP_VERSION = 'v24 · 21.11.2026';
+const APP_VERSION = 'v25 · 22.11.2026';
 
 /* ============================ GLOBAL EVENTS ============================ */
 
@@ -2921,7 +3038,34 @@ document.addEventListener('click', async (e) => {
       openTabsConfig();
       break;
 
-    case 'configEventButtons':
+    case 'editWalkTime': {
+      const p = currentPatient();
+      const k = todayKey(new Date());
+      const recs = p.events.filter(e => e.type === 'walk' && todayKey(new Date(e.ts)) === k);
+      if (!recs.length) break;
+      const last = recs.reduce((a, b) => (b.ts > a.ts ? b : a));
+      openModal(
+        '<h3>✏️ Изменить время прогулки</h3>' +
+        '<label class="field"><span>Время последней отметки</span>' +
+        '<input id="walkTimeInput" inputmode="numeric" autocomplete="off" value="' + timeHM(last.ts) + '"></label>' +
+        '<div class="modal-actions"><button class="btn" data-modal-cancel>Отмена</button>' +
+        '<button class="btn primary" id="saveWalkTime">Сохранить</button></div>'
+      );
+      const inp = document.getElementById('walkTimeInput');
+      try { inp.focus(); } catch (err) {}
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter'){ e.preventDefault(); document.getElementById('saveWalkTime').click(); } });
+      document.getElementById('saveWalkTime').addEventListener('click', () => {
+        const t = parseTimeInput(inp.value);
+        if (!t){ showToast('Не удалось прочитать время. Пример: 1430 или 14:30', 'error'); return; }
+        const d = new Date(last.ts);
+        d.setHours(t.h, t.min, 0, 0);
+        last.ts = d.getTime();
+        save(); closeModal(); render();
+        showToast('Время отметки изменено', 'ok');
+      });
+      break;
+    }
+case 'configEventButtons':
       openEventButtonsConfig();
       break;
 
