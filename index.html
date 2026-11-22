@@ -127,6 +127,7 @@
     padding:10px 16px;border-radius:10px;border:1px solid var(--border);background:var(--card);
     color:var(--text);font-family:inherit;font-size:.9rem;font-weight:600;cursor:pointer;transition:.15s;
   }
+  .chip{display:inline-block;padding:8px 14px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--text);font-size:.9rem;font-weight:600;}
   .btn:hover{border-color:var(--primary);color:var(--primary)}
   .btn.primary{background:var(--primary);border-color:var(--primary);color:var(--primary-fg)}
   .btn.primary:hover{background:var(--primary-2);color:#fff}
@@ -1445,9 +1446,40 @@ function medCatalogHas(name){
   return (state.medCatalog || []).some(x => x.toLowerCase() === k);
 }
 function catalogChipsHtml(){
+  const edit = !!(state.ui && state.ui.catalogEditMode);
   const list = medCatalogSorted();
-  if (!list.length) return '<span class="muted">Список пуст — наполнится, когда добавите лекарства пациентам.</span>';
-  return list.map(n => '<button class="btn" data-action="delCatalogMed" data-name="' + escapeHtml(n) + '" title="Убрать из общего списка">✕ ' + escapeHtml(n) + '</button>').join(' ');
+  const undoName = (state.ui && state.ui.catalogUndo) || '';
+  let html = '';
+  if (undoName){
+    html += '<div class="btn-row" style="margin-bottom:10px">' +
+      '<button class="btn" data-action="undoCatalogDel" title="Вернуть последнее удалённое из списка">↩ Вернуть «' + escapeHtml(undoName) + '»</button></div>';
+  }
+  if (!list.length){
+    html += '<span class="muted">Список пуст — наполнится, когда добавите лекарства пациентам.</span>';
+  } else if (edit){
+    html += list.map(n => '<button class="btn" data-action="delCatalogMed" data-name="' + escapeHtml(n) + '" title="Убрать из общего списка">✕ ' + escapeHtml(n) + '</button>').join(' ');
+  } else {
+    html += list.map(n => '<span class="chip">' + escapeHtml(n) + '</span>').join(' ');
+  }
+  html += '<div class="btn-row" style="margin-top:10px">';
+  if (edit){
+    html += '<button class="btn" data-action="addCatalogMed">➕ Добавить</button>';
+    html += '<button class="btn primary" data-action="catalogDone">Готово</button>';
+  } else {
+    html += '<button class="btn" data-action="catalogEdit">✏️ Редактировать</button>';
+  }
+  html += '</div>';
+  return html;
+}
+async function addCatalogMed(){
+  const name = await promptModal('Название для общего списка', '');
+  if (name === null) return;
+  const nm = String(name).trim();
+  if (!nm) return;
+  if (medCatalogHas(nm)){ showToast('«' + nm + '» уже есть в общем списке', 'error'); return; }
+  addToCatalog(nm);
+  save(); render();
+  showToast('Добавлено в общий список', 'ok');
 }
 function openMedModal(medId){
   const p = currentPatient();
@@ -2567,7 +2599,7 @@ function renderData(host){
 
     '<section class="card">' +
       '<div class="card-head"><h2>Общий список лекарств</h2></div>' +
-      '<p class="muted" style="margin:0 0 10px">Список общий для всех пациентов: название вносится один раз, дозировка каждому своя. Удаление из списка не затрагивает назначенные препараты.</p>' +
+      '<p class="muted" style="margin:0 0 10px">Список общий для всех пациентов: название вносится один раз, дозировка каждому своя. Удаление из списка не затрагивает назначенные препараты. Кнопка «Редактировать» открывает правку: удаляйте и добавляйте названия; случайно удалённое возвращается кнопкой «Вернуть» в той же карточке.</p>' +
       '<div class="btn-row">' +
         catalogChipsHtml() +
       '</div>' +
@@ -2904,7 +2936,7 @@ function openHelp(){
       '🩸 САХАР\n' +
       'Вводите глюкозу в ммоль/л. При значениях ≤3.5 или ≥15 появляется предупреждение.\n\n' +
       '💊 ЛЕКАРСТВА\n' +
-      'Отмечайте приём кнопкой «Принято»; снять отметку — «Снять отметку». Препараты «По необходимости» можно принимать несколько раз за день: каждое нажатие «Принять» добавляет отметку, «Снять» убирает последнюю. Если отметили не вовремя или забыли отметить сразу — тап по маленькому ✏️ рядом со строкой «Принято» позволяет вписать реальное время с цифровой клавиатуры — можно без двоеточия (0815 превратится в 08:15); только для сегодняшних отметок, у «По необходимости» правится последняя отметка. Кнопка «Редактировать» открывает «План приёма лекарств»: здесь отмечать приёмы не нужно, вместо этого «Изменить» и красная «Отменить препарат», а у отменённых — «Возобновить»; отметки «Принято» в этом режиме скрыты. Время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Отмена препарата убирает его из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт. Названия лекарств — общий список для всех пациентов: выбирайте препарат из списка; новое название впишите через «Другое (вписать)…» — оно попадёт в список (управление — вкладка «Данные»). Один и тот же препарат нельзя назначить дважды: если он уже есть у пациента (в том числе среди отменённых), приложение подскажет его изменить или возобновить. Кнопка «Удалить препарат» в окне «Изменить» убирает его совсем — вместе с отметками приёма (6 секунд на отмену); пользуйтесь ею для ошибочно добавленных записей.\n\n' +
+      'Отмечайте приём кнопкой «Принято»; снять отметку — «Снять отметку». Препараты «По необходимости» можно принимать несколько раз за день: каждое нажатие «Принять» добавляет отметку, «Снять» убирает последнюю. Если отметили не вовремя или забыли отметить сразу — тап по маленькому ✏️ рядом со строкой «Принято» позволяет вписать реальное время с цифровой клавиатуры — можно без двоеточия (0815 превратится в 08:15); только для сегодняшних отметок, у «По необходимости» правится последняя отметка. Кнопка «Редактировать» открывает «План приёма лекарств»: здесь отмечать приёмы не нужно, вместо этого «Изменить» и красная «Отменить препарат», а у отменённых — «Возобновить»; отметки «Принято» в этом режиме скрыты. Время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Отмена препарата убирает его из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт. Названия лекарств — общий список для всех пациентов: выбирайте препарат из списка; новое название впишите через «Другое (вписать)…» — оно попадёт в список. Управление списком — вкладка «Данные»: кнопка «Редактировать» открывает удаление и добавление названий, случайно удалённое возвращается кнопкой «Вернуть» в той же карточке. Один и тот же препарат нельзя назначить дважды: если он уже есть у пациента (в том числе среди отменённых), приложение подскажет его изменить или возобновить. Кнопка «Удалить препарат» в окне «Изменить» убирает его совсем — вместе с отметками приёма (6 секунд на отмену); пользуйтесь ею для ошибочно добавленных записей.\n\n' +
       '📊 СТАТИСТИКА и 📄 ОТЧЁТ\n' +
       'В «Статистике» — график динамики веса за выбранный период.\n' +
       'Автоматический расчёт за 3–90 дней; отчёт можно построить и за свой период — пункт «Свой период…» в списке периодов и две даты. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
@@ -2921,7 +2953,7 @@ function openHelp(){
   );
 }
 
-const APP_VERSION = 'v26 · 22.11.2026';
+const APP_VERSION = 'v27 · 22.11.2026';
 
 /* ============================ GLOBAL EVENTS ============================ */
 
@@ -3290,10 +3322,36 @@ case 'configEventButtons':
       const ci = cat.findIndex(x => x.toLowerCase() === catName.toLowerCase());
       if (ci === -1) break;
       const removed = cat.splice(ci, 1)[0];
+      state.ui.catalogUndo = removed;
       save(); render();
-      undoableToast('«' + removed + '» убрано из списка', () => { addToCatalog(removed); save(); render(); });
       break;
     }
+
+    case 'undoCatalogDel': {
+      const un = state.ui.catalogUndo || '';
+      if (!un) break;
+      state.ui.catalogUndo = null;
+      addToCatalog(un);
+      save(); render();
+      showToast('«' + un + '» вернулось в общий список', 'ok');
+      break;
+    }
+
+    case 'catalogEdit':
+      state.ui.catalogEditMode = true;
+      state.ui.catalogUndo = null;
+      save(); render();
+      break;
+
+    case 'catalogDone':
+      state.ui.catalogEditMode = false;
+      state.ui.catalogUndo = null;
+      save(); render();
+      break;
+
+    case 'addCatalogMed':
+      addCatalogMed();
+      break;
 
     case 'shareBackup':
       shareBackup();
