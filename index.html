@@ -2666,10 +2666,10 @@ function renderData(host){
 
     '<section class="card">' +
       '<div class="card-head"><h2>Напоминания о приёме</h2></div>' +
-      '<p class="muted" style="margin:0 0 10px">Файл календаря (.ics) с повторяющимися событиями «Пора принимать лекарства»: телефон напомнит в нужный час, даже без интернета. Названия препаратов в события не попадают; «По необходимости» не включается. Если план приёма изменился — удалите старые серии в календаре (все события называются одинаково, ищутся поиском) и создайте файл заново.</p>' +
+      '<p class="muted" style="margin:0 0 10px">Файл календаря (.ics) с повторяющимися событиями «Пора принимать лекарства»: телефон напомнит в нужный час, даже без интернета. Названия препаратов в события не попадают; «По необходимости» не включается. Если план приёма изменился — удалите старые серии в календаре (все события называются одинаково, ищутся поиском) и создайте файл заново. Часы в полях можно вписать без двоеточия — 930 превратится в 09:30; пустое поле оставит прежнее время.</p>' +
       '<div class="btn-row">' +
         SLOTS.filter(s => s.id !== 'asneeded').map(s =>
-          '<label class="field" style="margin:0 12px 0 0"><span>' + s.icon + ' ' + s.label + '</span><input type="time" value="' + reminderHoursFor(s.id) + '" data-rem-hour="' + s.id + '"></label>'
+          '<label class="field" style="margin:0 12px 0 0"><span>' + s.icon + ' ' + s.label + '</span><input type="text" inputmode="numeric" autocomplete="off" placeholder="' + reminderHoursFor(s.id) + '" data-rem-hour="' + s.id + '"></label>'
         ).join('') +
       '</div>' +
       '<div class="btn-row">' +
@@ -3028,7 +3028,7 @@ function openHelp(){
   );
 }
 
-const APP_VERSION = 'v29 · 22.11.2026';
+const APP_VERSION = 'v30 · 22.11.2026';
 
 /* ============================ GLOBAL EVENTS ============================ */
 
@@ -3370,7 +3370,7 @@ case 'configEventButtons':
         state.reminderHours[sl] = pad2(v.h) + ':' + pad2(v.min);
         n++;
       });
-      if (!n){ showToast('Часы не изменились', 'error'); break; }
+      if (!n){ showToast('Введите хотя бы одно время (например, 930)', 'error'); break; }
       save(); render();
       showToast('Часы напоминаний сохранены', 'ok');
       break;
