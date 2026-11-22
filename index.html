@@ -342,6 +342,8 @@ const SLOTS = [
   { id:'asneeded', label:'По необходимости',  icon:'🩹' }
 ];
 
+const SLOT_DEFAULT_HOURS = { morning: '09:00', day: '15:00', evening: '19:00', night: '23:00' };
+
 /* ============================ UTILS ============================ */
 
 function uid(){
@@ -1340,8 +1342,20 @@ function renderMeds(host){
   const log = p.medLog[tk] || {};
   const anyTaken = Object.keys(log).length > 0;
 
+  let duePill = '';
+  if (!medsEditMode){
+    const csl = currentReminderSlot();
+    const slotInfo = SLOTS.find(s => s.id === csl);
+    const items = activeMeds.filter(m => m.slots.indexOf(csl) !== -1);
+    if (slotInfo && items.length){
+      const done = items.filter(m => !!log[csl + '|' + m.id]).length;
+      if (done < items.length){
+        duePill = '<div class="alert warn">⏰ ' + slotInfo.icon + ' Пора принимать: ' + escapeHtml(slotInfo.label.toLowerCase()) + ' — отмечено ' + done + ' из ' + items.length + '. <button class="btn primary sm" data-action="markSlotAll" data-slot="' + csl + '">Отметить всё</button></div>';
+      }
+    }
+  }
   let warn = '';
-  if (!medsEditMode && activeMeds.length && !anyTaken){
+  if (!medsEditMode && activeMeds.length && !anyTaken && !duePill){
     warn = '<div class="alert warn">⚠️ Сегодня ещё нет ни одной отметки о приёме лекарств.</div>';
   }
 
@@ -1420,7 +1434,7 @@ function renderMeds(host){
           ? '<button class="btn primary sm" data-action="medsDone">✔ Готово</button>'
           : '<button class="btn sm" data-action="medsEdit">✏️ Редактировать</button>') +
       '</div>' +
-      warn + body +
+      duePill + warn + body +
     '</section>';
 }
 
@@ -1584,6 +1598,65 @@ function openMedModal(medId){
       save(); renderView();
     });
   });
+}
+
+function reminderSlots(){
+  const p = currentPatient();
+  const seen = {};
+  (p.meds || []).forEach(m => {
+    if (m.status === 'stopped') return;
+    (m.slots || []).forEach(sl => { if (sl !== 'asneeded') seen[sl] = true; });
+  });
+  return ['morning', 'day', 'evening', 'night'].filter(x => seen[x]);
+}
+function reminderHoursFor(slotId){
+  const def = SLOT_DEFAULT_HOURS[slotId];
+  const h = (state.reminderHours && state.reminderHours[slotId]) || def;
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(h) ? h : def;
+}
+function addMinHM(hm, add){
+  const p = String(hm).split(':').map(Number);
+  const t = (p[0] * 60 + p[1] + add) % 1440;
+  return pad2(Math.floor(t / 60)) + ':' + pad2(t % 60);
+}
+function buildRemindersIcs(){
+  const slots = reminderSlots();
+  if (!slots.length) return null;
+  const d = new Date();
+  const dateStr = String(d.getFullYear()) + pad2(d.getMonth() + 1) + pad2(d.getDate());
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kompas Zaboty//RU'];
+  slots.forEach(sl => {
+    const hm = reminderHoursFor(sl);
+    lines.push('BEGIN:VEVENT',
+      'UID:kompas-care-' + sl + '@kompas-care.local',
+      'DTSTART:' + dateStr + 'T' + hm.replace(':', '') + '00',
+      'DTEND:' + dateStr + 'T' + addMinHM(hm, 15).replace(':', '') + '00',
+      'RRULE:FREQ=DAILY',
+      'SUMMARY:Пора принимать лекарства',
+      'DESCRIPTION:Отметьте приём в приложении «Компас заботы»',
+      'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Пора принимать лекарства', 'TRIGGER:-PT0M', 'END:VALARM',
+      'END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n') + '\r\n';
+}
+function remindersPreviewHtml(){
+  const slots = reminderSlots();
+  if (!slots.length) return '<p class="muted" style="margin:10px 0 0">Напоминания не нужны: у активных препаратов нет приёмов по расписанию.</p>';
+  const parts = slots.map(sl => {
+    const s = SLOTS.find(x => x.id === sl);
+    return s.label.toLowerCase() + ' ' + reminderHoursFor(sl);
+  });
+  return '<p class="muted" style="margin:10px 0 0">Будет создано: ' + parts.length + ' ' + pluralRu(parts.length, 'событие', 'события', 'событий') + ' — ' + parts.join(', ') + '.</p>';
+}
+function currentReminderSlot(d){
+  d = d || new Date();
+  const mins = d.getHours() * 60 + d.getMinutes();
+  const hmM = (sl) => { const v = parseTimeInput(reminderHoursFor(sl)); return v ? v.h * 60 + v.min : 0; };
+  if (mins >= hmM('night') || mins < hmM('morning')) return 'night';
+  if (mins >= hmM('evening')) return 'evening';
+  if (mins >= hmM('day')) return 'day';
+  return 'morning';
 }
 
 function pluralRu(n, one, few, many){
@@ -2592,6 +2665,21 @@ function renderData(host){
     '</section>' +
 
     '<section class="card">' +
+      '<div class="card-head"><h2>Напоминания о приёме</h2></div>' +
+      '<p class="muted" style="margin:0 0 10px">Файл календаря (.ics) с повторяющимися событиями «Пора принимать лекарства»: телефон напомнит в нужный час, даже без интернета. Названия препаратов в события не попадают; «По необходимости» не включается. Если план приёма изменился — удалите старые серии в календаре (все события называются одинаково, ищутся поиском) и создайте файл заново.</p>' +
+      '<div class="btn-row">' +
+        SLOTS.filter(s => s.id !== 'asneeded').map(s =>
+          '<label class="field" style="margin:0 12px 0 0"><span>' + s.icon + ' ' + s.label + '</span><input type="time" value="' + reminderHoursFor(s.id) + '" data-rem-hour="' + s.id + '"></label>'
+        ).join('') +
+      '</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn" data-action="saveRemHours">Сохранить часы</button>' +
+        '<button class="btn primary" data-action="downloadRemindersIcs">⏰ Скачать напоминания (.ics)</button>' +
+      '</div>' +
+      remindersPreviewHtml() +
+    '</section>' +
+
+    '<section class="card">' +
       '<div class="card-head"><h2>Экспорт</h2></div>' +
       '<div class="btn-row">' +
         '<button class="btn" data-action="exportCsvOne">CSV · текущий пациент</button>' +
@@ -2923,11 +3011,12 @@ function openHelp(){
       'Вводите глюкозу в ммоль/л. При значениях ≤3.5 или ≥15 появляется предупреждение.\n\n' +
       '💊 ЛЕКАРСТВА\n' +
       'Отмечайте приём кнопкой «Принято»; снять отметку — «Снять отметку». Препараты «По необходимости» можно принимать несколько раз за день: каждое нажатие «Принять» добавляет отметку, «Снять» убирает последнюю. Если отметили не вовремя или забыли отметить сразу — тап по маленькому ✏️ рядом со строкой «Принято» позволяет вписать реальное время с цифровой клавиатуры — можно без двоеточия (0815 превратится в 08:15); только для сегодняшних отметок, у «По необходимости» правится последняя отметка. Кнопка «Редактировать» открывает «План приёма лекарств»: здесь отмечать приёмы не нужно, вместо этого «Изменить» и красная «Отменить препарат», а у отменённых — «Возобновить»; отметки «Принято» в этом режиме скрыты. Время приёма можно выбрать несколько (например, утро и вечер). Кнопки удаления нет: при ошибке исправьте название через «Изменить». Отмена препарата убирает его из расписания (история приёмов сохранится), а «Возобновить» вернёт его; изменения попадают в отчёт. Названия лекарств — общий список для всех пациентов: выбирайте препарат из списка; новое название впишите через «Другое (вписать)…» — оно попадёт в список. Управление списком — вкладка «Данные»: тап по названию — удаление с подтверждением, кнопка «➕ Добавить» пополняет список. Один и тот же препарат нельзя назначить дважды: если он уже есть у пациента (в том числе среди отменённых), приложение подскажет его изменить или возобновить. Кнопка «Удалить препарат» в окне «Изменить» убирает его совсем — вместе с отметками приёма (6 секунд на отмену); пользуйтесь ею для ошибочно добавленных записей.\n\n' +
+      '⏰ НАПОМИНАНИЯ\nВкладка «Данные», карточка «Напоминания о приёме»: настройте часы и скачайте файл (.ics), откройте его в календаре телефона — он будет напоминать «Пора принимать лекарства» каждый день, даже без интернета. Названия препаратов в напоминания не попадают, «По необходимости» не включается. При смене плана приёма удалите в календаре старые серии (все события называются одинаково — ищутся поиском) и создайте файл заново.\n\n' +
       '📊 СТАТИСТИКА и 📄 ОТЧЁТ\n' +
       'В «Статистике» — график динамики веса за выбранный период.\n' +
       'Автоматический расчёт за 3–90 дней; отчёт можно построить и за свой период — пункт «Свой период…» в списке периодов и две даты. Отчёт можно скопировать или распечатать (сохранить в PDF).\n\n' +
       '💾 ДАННЫЕ\n' +
-      'Целевые значения АД, заметка о пациенте, экспорт в CSV/JSON, импорт, восстановление снимков, полная очистка.\n\n' +
+      'Целевые значения АД, заметка о пациенте, экспорт в CSV/JSON, импорт, напоминания в календаре (.ics), восстановление снимков, полная очистка.\n\n' +
       '🛡 РЕЗЕРВНЫЕ КОПИИ\n' +
       'Приложение раз в сутки само сохраняет снимок данных (хранятся 14 последних — восстанавливаются во вкладке «Данные»). Раз в неделю отправляйте копию кнопкой «Отправить копию» (Telegram, MAX, почта — откроется меню телефона) или скачивайте «JSON · резервная копия». Если копия не делалась больше 7 дней, наверху появится напоминание.\n\n' +
       '📋 НАСТРОЙКА ВКЛАДОК\n' +
@@ -2939,7 +3028,7 @@ function openHelp(){
   );
 }
 
-const APP_VERSION = 'v28 · 22.11.2026';
+const APP_VERSION = 'v29 · 22.11.2026';
 
 /* ============================ GLOBAL EVENTS ============================ */
 
@@ -3257,6 +3346,61 @@ case 'configEventButtons':
     case 'takeMed':
       toggleMed(el.dataset.id, el.dataset.slot);
       break;
+
+    case 'markSlotAll': {
+      const p = currentPatient();
+      const sl = el.dataset.slot;
+      const tk = todayKey();
+      if (!p.medLog[tk]) p.medLog[tk] = {};
+      p.meds.filter(m => m.status !== 'stopped' && (m.slots || []).indexOf(sl) !== -1)
+        .forEach(m => { const k = sl + '|' + m.id; if (!p.medLog[tk][k]) p.medLog[tk][k] = Date.now(); });
+      save(); renderView();
+      showToast('Приёмы слота отмечены: все приняты', 'ok');
+      break;
+    }
+
+    case 'saveRemHours': {
+      state.reminderHours = state.reminderHours || {};
+      let n = 0;
+      ['morning', 'day', 'evening', 'night'].forEach(sl => {
+        const inp = document.querySelector('[data-rem-hour="' + sl + '"]');
+        if (!inp) return;
+        const v = parseTimeInput(inp.value);
+        if (!v) return;
+        state.reminderHours[sl] = pad2(v.h) + ':' + pad2(v.min);
+        n++;
+      });
+      if (!n){ showToast('Часы не изменились', 'error'); break; }
+      save(); render();
+      showToast('Часы напоминаний сохранены', 'ok');
+      break;
+    }
+
+    case 'downloadRemindersIcs': {
+      const curSlots = reminderSlots();
+      if (!curSlots.length){ showToast('Нет препаратов с расписанием — напоминания не нужны', 'error'); break; }
+      const prev = state.lastRemindersSlots || null;
+      const doDownload = () => {
+        const icsText = buildRemindersIcs();
+        if (!icsText) return;
+        download('kompas-reminders.ics', icsText, 'text/calendar');
+        showToast('Файл скачан — откройте его в календаре', 'ok');
+      };
+      if (prev && prev.join() === curSlots.join()){
+        modalConfirm('Напоминания с этим набором приёмов уже создавались. Если старые события не удалены из календаря, в один час напомнит дважды. Создать файл заново?', { okText: 'Создать', danger: true })
+          .then(ok => {
+            if (!ok) return;
+            state.lastRemindersSlots = curSlots.slice();
+            save();
+            doDownload();
+          });
+      } else {
+        state.lastRemindersSlots = curSlots.slice();
+        save();
+        doDownload();
+      }
+      break;
+    }
 
     case 'genReport':
       renderView();
