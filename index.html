@@ -591,6 +591,15 @@ function normalizeState(s){
     ceSeen[c.id] = 1;
     return true;
   });
+  for (const id of Object.keys(s.patients)){
+    (s.patients[id].events || []).forEach(e => {
+      if (e && typeof e.type === 'string' && e.type.indexOf('cust') === 0 && !e.name){
+        const c = s.customEvents.find(x => x.id === e.type);
+        if (c){ e.name = c.name; if (c.icon) e.icon = c.icon; }
+      }
+    });
+  }
+
   if (!s.patients[s.currentPatientId]) s.currentPatientId = Object.keys(s.patients)[0];
   return s;
 }
@@ -930,7 +939,9 @@ function renderEventsList(p){
     let b = EVENT_MAP[ev.type];
     if (!b){
       const cc = (state.customEvents || []).find(x => x.id === ev.type);
-      b = cc ? { label: cc.name, icon: cc.icon } : (ev.type.indexOf('cust') === 0 ? { label: 'Своё событие', icon: '•' } : { label: ev.type, icon: '•' });
+      const nm = ev.name || (cc && cc.name) || null;
+      const ic = ev.icon || (cc && cc.icon) || '•';
+      b = (ev.type.indexOf('cust') === 0) ? { label: nm || 'Своё событие', icon: ic } : { label: ev.type, icon: '•' };
     }
     const val = (ev.value !== null && ev.value !== undefined)
       ? '<span class="row-val">' + escapeHtml(String(ev.value)) + (b.unit ? ' ' + escapeHtml(b.unit) : '') + '</span>'
@@ -948,7 +959,10 @@ function renderEventsList(p){
 
 function addEvent(type, value){
   const p = currentPatient();
-  p.events.push({ id: uid(), ts: Date.now(), type: type, value: (value === undefined ? null : value) });
+  const cc = (type.indexOf('cust') === 0) ? (state.customEvents || []).find(x => x.id === type) : null;
+  const rec = { id: uid(), ts: Date.now(), type: type, value: (value === undefined ? null : value) };
+  if (cc){ rec.name = cc.name; rec.icon = cc.icon; }
+  p.events.push(rec);
   save();
   renderView();
   showToast('Событие добавлено', 'ok');
@@ -1040,6 +1054,8 @@ function openCustomEventModal(id){
     const nm = nameInp.value.trim();
     if (!nm){ showToast('Введите название события', 'error'); return; }
     const ic = document.getElementById('custIcon').value;
+    const dupe = (state.customEvents || []).find(x => x !== c && x.name.toLowerCase() === nm.toLowerCase());
+    if (dupe){ showToast('«' + dupe.name + '» уже есть среди своих событий — используйте его или придумайте другое название', 'error'); return; }
     if (c){ c.name = nm; c.icon = ic; }
     else {
       if ((state.customEvents || []).length >= 5){ showToast('Можно добавить не более 5 своих событий', 'error'); return; }
@@ -1961,9 +1977,14 @@ function buildReport(days){
     L.push('   Всего записей: ' + st.eventsTotal + ' · эпизодов: ' + st.episodes +
       (st.episodes ? ' (утро ' + st.bySlot.morning + ', день ' + st.bySlot.day + ', вечер ' + st.bySlot.evening + ', ночь ' + st.bySlot.night + ')' : ''));
     L.push('   ' + (cnt.join(' · ') || 'прочих событий нет'));
-    const customReport = (state.customEvents || []).filter(c => c.enabled)
-      .map(c => ({ name: c.name, n: ev.filter(e => e.type === c.id).length }))
-      .filter(x => x.n > 0);
+    const custGroups = {};
+    ev.forEach(e => {
+      if (typeof e.type !== 'string' || e.type.indexOf('cust') !== 0) return;
+      const c = (state.customEvents || []).find(x => x.id === e.type);
+      const nm = e.name || (c ? c.name : '') || 'Своё событие';
+      custGroups[nm] = (custGroups[nm] || 0) + 1;
+    });
+    const customReport = Object.keys(custGroups).map(nm => ({ name: nm, n: custGroups[nm] }));
     if (customReport.length) L.push('   ' + customReport.map(x => escapeHtml(x.name) + ': ' + x.n).join(' · '));
   }
   L.push('');
@@ -2192,9 +2213,14 @@ function buildReportHtml(days){
     if (st.walks) cnt.push('прогулки: ' + st.walks);
     H.push('<p>Всего записей: ' + st.eventsTotal + ' · эпизодов: ' + st.episodes + (st.episodes ? ' (утро ' + st.bySlot.morning + ', день ' + st.bySlot.day + ', вечер ' + st.bySlot.evening + ', ночь ' + st.bySlot.night + ')' : '') + '</p>');
     H.push('<p>' + (cnt.join(' · ') || 'прочих событий нет') + '</p>');
-    const customReportH = (state.customEvents || []).filter(c => c.enabled)
-      .map(c => ({ name: c.name, n: ev.filter(e => e.type === c.id).length }))
-      .filter(x => x.n > 0);
+    const custGroupsH = {};
+    ev.forEach(e => {
+      if (typeof e.type !== 'string' || e.type.indexOf('cust') !== 0) return;
+      const c = (state.customEvents || []).find(x => x.id === e.type);
+      const nm = e.name || (c ? c.name : '') || 'Своё событие';
+      custGroupsH[nm] = (custGroupsH[nm] || 0) + 1;
+    });
+    const customReportH = Object.keys(custGroupsH).map(nm => ({ name: nm, n: custGroupsH[nm] }));
     if (customReportH.length) H.push('<p>' + customReportH.map(x => escapeHtml(x.name) + ': ' + x.n).join(' · ') + '</p>');
   }
 
@@ -2872,7 +2898,7 @@ function openHelp(){
       'Нажимайте кнопки для быстрой записи (Туалет, Эпизод, Сухо, Мокро и т.д.). Кнопки «Температура» и «Вес» попросят ввести значение. '
         + 'Кнопка «Прогулка» — отметка с временем, отмечать можно несколько раз за день; значок ✏️ у строки «Сегодня: N раз» меняет время последней отметки. '
         + 'Кнопка ⚙️: скрытие ненужных кнопок (история при этом не удаляется) и управление своими событиями — можно добавить до 5 со своим значком. '
-        + 'Своё событие попадает в отчёт, только пока включено и есть записи; при выключении или удалении существующие отметки сохраняются.\n\n' +
+        + 'Каждая отметка своего события хранит имя и значок на момент записи: после переименования старые записи остаются со старым именем, при удалении события отметки остаются с именами. В отчёте строки своих событий пишутся по записям за период — независимо от того, включено или удалено событие.\n\n' +
       '❤️ ДАВЛЕНИЕ\n' +
       'Введите верхнее, нижнее и пульс — после трёх цифр курсор сам перескакивает на следующее поле. При давлении ≥180/110 появится экстренное предупреждение. История окрашивается по уровню, ниже — графики.\n\n' +
       '🩸 САХАР\n' +
@@ -2895,7 +2921,7 @@ function openHelp(){
   );
 }
 
-const APP_VERSION = 'v25 · 22.11.2026';
+const APP_VERSION = 'v26 · 22.11.2026';
 
 /* ============================ GLOBAL EVENTS ============================ */
 
