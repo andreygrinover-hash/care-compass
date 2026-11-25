@@ -2019,7 +2019,7 @@ function buildReport(days){
     if (puAll.length) L.push('   Пульс: средний ' + Math.round(avg(puAll)) + ', диапазон ' + Math.min.apply(null, puAll) + '–' + Math.max.apply(null, puAll) + ' уд/мин');
     if (pr.length >= 2) L.push('   Динамика (слева — раньше): ' + sparkline(sysAll));
     L.push('   Измерения:');
-    pr.forEach(r => {
+    pr.slice().reverse().forEach(r => {
       L.push('     ' + fmtDateTime(r.ts) + '  ' + r.sys + '/' + r.dia + (r.pulse ? '  пульс ' + r.pulse : '') + '  ' + pressureMark(pressureClass(r.sys, r.dia)));
     });
   }
@@ -2030,7 +2030,7 @@ function buildReport(days){
     const vals = sg.map(r => Number(r.value));
     L.push('   Средний уровень: ' + fmtNum(st.avgSugar) + ' ммоль/л · диапазон ' + fmtNum(Math.min.apply(null, vals)) + ' – ' + fmtNum(Math.max.apply(null, vals)));
     L.push('   Измерения:');
-    sg.forEach(r => {
+    sg.slice().reverse().forEach(r => {
       L.push('     ' + fmtDateTime(r.ts) + '  ' + fmtNum(r.value) + ' ммоль/л  ' + sugarMark(sugarClass(Number(r.value))));
     });
   }
@@ -2041,13 +2041,13 @@ function buildReport(days){
     if (wts.length){
     L.push('   Вес: ' + fmtNum(st.weightFirst) + ' кг → ' + fmtNum(st.weightLast) + ' кг' +
       (st.weightDelta !== null ? ' (динамика ' + (st.weightDelta > 0 ? '+' : '') + fmtNum(st.weightDelta) + ' кг)' : '') + ', измерений ' + wts.length);
-    wts.forEach(e => L.push('     ' + fmtDateTime(e.ts) + '  ' + fmtNum(e.value) + ' кг'));
+    wts.slice().reverse().forEach(e => L.push('     ' + fmtDateTime(e.ts) + '  ' + fmtNum(e.value) + ' кг'));
   } else {
     L.push('   Вес: не вносился.');
   }
   if (tmps.length){
     L.push('   Температура: измерений ' + tmps.length + ', максимальная ' + fmtNum(st.maxTemp) + ' °C');
-    tmps.forEach(e => L.push('     ' + fmtDateTime(e.ts) + '  ' + fmtNum(e.value) + ' °C'));
+    tmps.slice().reverse().forEach(e => L.push('     ' + fmtDateTime(e.ts) + '  ' + fmtNum(e.value) + ' °C'));
   } else {
     L.push('   Температура: не измерялась.');
   }
@@ -2215,7 +2215,7 @@ function buildReportHtml(days){
   const H = [];
   H.push('<div class="report-doc">');
   H.push('<h3 class="rep-title">Отчёт о наблюдении</h3>');
-  H.push('<p class="rep-meta">Пациент: <b>' + escapeHtml(p.name) + '</b> · Период: ' + fmtDate(st.from) + ' — ' + fmtDate(to) + ' (' + rng.span + ' дн.) · Сформирован: ' + fmtDateTime(to) + '</p>');
+  H.push('<p class="rep-meta">Пациент: <b>' + escapeHtml(p.name) + '</b> · Период: ' + fmtDate(st.from) + ' — ' + fmtDate(to) + ' (' + rng.span + ' дн.) · Сформирован: ' + fmtDateTime(to) + ' · Свежие измерения — сверху</p>');
 
   H.push('<h4>1. Сводка: что требует внимания</h4>');
   H.push('<ul class="rep-flags">');
@@ -2260,7 +2260,7 @@ function buildReportHtml(days){
       H.push('<p>Динамика (слева — раньше): <span class="mono">' + sparkline(sysAll) + '</span>' + trend + '</p>');
     }
     H.push('<table class="rep-table"><thead><tr><th>Время</th><th>АД, мм рт. ст.</th><th>Пульс</th><th>Оценка</th></tr></thead><tbody>');
-    pr.forEach(r => {
+    pr.slice().reverse().forEach(r => {
       H.push('<tr' + rowCls(pressureClass(r.sys, r.dia)) + '><td>' + fmtDateTime(r.ts) + '</td><td><b>' + r.sys + '/' + r.dia + '</b></td><td>' + (r.pulse || '—') + '</td><td>' + pressureMark(pressureClass(r.sys, r.dia)) + '</td></tr>');
     });
     H.push('</tbody></table>');
@@ -2273,7 +2273,7 @@ function buildReportHtml(days){
   if (sg.length){
     sect('Глюкоза крови');
     H.push('<table class="rep-table"><thead><tr><th>Время</th><th>ммоль/л</th><th>Оценка</th></tr></thead><tbody>');
-    sg.forEach(r => {
+    sg.slice().reverse().forEach(r => {
       H.push('<tr' + rowCls(sugarClass(Number(r.value))) + '><td>' + fmtDateTime(r.ts) + '</td><td><b>' + fmtNum(r.value) + '</b></td><td>' + sugarMark(sugarClass(Number(r.value))) + '</td></tr>');
     });
     H.push('</tbody></table>');
@@ -2283,11 +2283,11 @@ function buildReportHtml(days){
     sect('Вес и температура');
     if (wts.length){
     H.push('<p>Вес: <b>' + fmtNum(st.weightFirst) + ' → ' + fmtNum(st.weightLast) + ' кг</b>' + (st.weightDelta !== null ? ' (динамика ' + (st.weightDelta > 0 ? '+' : '') + fmtNum(st.weightDelta) + ' кг)' : '') + '</p>');
-    H.push('<ul class="rep-list">' + wts.map(e => '<li>' + fmtDateTime(e.ts) + ' — ' + fmtNum(e.value) + ' кг</li>').join('') + '</ul>');
+    H.push('<ul class="rep-list">' + wts.slice().reverse().map(e => '<li>' + fmtDateTime(e.ts) + ' — ' + fmtNum(e.value) + ' кг</li>').join('') + '</ul>');
   } else H.push('<p class="rep-empty">Вес не вносился.</p>');
   if (tmps.length){
     H.push('<p>Температура: измерений ' + tmps.length + ', максимальная <b>' + fmtNum(st.maxTemp) + ' °C</b></p>');
-    H.push('<ul class="rep-list">' + tmps.map(e => '<li>' + fmtDateTime(e.ts) + ' — ' + fmtNum(e.value) + ' °C</li>').join('') + '</ul>');
+    H.push('<ul class="rep-list">' + tmps.slice().reverse().map(e => '<li>' + fmtDateTime(e.ts) + ' — ' + fmtNum(e.value) + ' °C</li>').join('') + '</ul>');
   } else H.push('<p class="rep-empty">Температура не измерялась.</p>');
   }
 
@@ -3033,7 +3033,7 @@ function openHelp(){
   );
 }
 
-const APP_VERSION = 'v32 · 24.11.2026';
+const APP_VERSION = 'v33 · 26.11.2026';
 
 const FEEDBACK_EMAIL = 'grinover@yandex.ru';
 function feedbackUrl(){
