@@ -227,8 +227,8 @@
   .med-row.taken{border-color:var(--ok);background:var(--ok-bg)}
   .med-row.stopped{opacity:.55}
   .med-info{flex:1;min-width:0}
-  .med-name{font-weight:600;font-size:.9rem}
-  .med-dose{font-size:.78rem;color:var(--muted)}
+  .med-name{font-weight:600;font-size:.9rem;overflow-wrap:anywhere;word-break:break-word}
+  .med-dose{font-size:.78rem;color:var(--muted);overflow-wrap:anywhere;word-break:break-word}
   .med-actions{display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
   .sep{height:1px;background:var(--border);margin:14px 0}
   @media (max-width:520px){
@@ -3033,7 +3033,7 @@ function openHelp(){
   );
 }
 
-const APP_VERSION = 'v33 · 26.11.2026';
+const APP_VERSION = 'v34 · 26.11.2026';
 
 const FEEDBACK_EMAIL = 'grinover@yandex.ru';
 function feedbackUrl(){
