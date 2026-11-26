@@ -223,10 +223,12 @@
   .slot-head{display:flex;align-items:center;gap:8px;font-size:.8rem;font-weight:700;color:var(--muted);
     text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
   .slot-head:first-child{margin-top:0}
-  .med-row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:7px;background:var(--bg)}
+  .med-row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:7px;background:var(--bg);flex-wrap:wrap}
   .med-row.taken{border-color:var(--ok);background:var(--ok-bg)}
+.med-row.editing{flex-wrap:wrap}
+.med-row.editing .med-info{flex:1 1 100%}
   .med-row.stopped{opacity:.55}
-  .med-info{flex:1;min-width:0}
+  .med-info{flex:1 1 100%;min-width:0}
   .med-name{font-weight:600;font-size:.9rem;overflow-wrap:anywhere;word-break:break-word}
   .med-dose{font-size:.78rem;color:var(--muted);overflow-wrap:anywhere;word-break:break-word}
   .med-actions{display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
@@ -1384,7 +1386,7 @@ function renderMeds(host){
               ' <button class="take-edit" data-action="editTakeTime" data-id="' + m.id + '" data-slot="' + slot.id + '" title="Изменить время отметки" aria-label="Изменить время отметки">✏️</button></div>';
           }
         }
-        body += '<div class="med-row' + (taken && !medsEditMode ? ' taken' : '') + '">' +
+        body += '<div class="med-row' + (medsEditMode ? ' editing' : (taken ? ' taken' : '')) + '">' +
           '<div class="med-info">' +
             '<div class="med-name">' + escapeHtml(m.name) + '</div>' +
             (m.dose ? '<div class="med-dose">' + escapeHtml(m.dose) + '</div>' : '') +
@@ -3033,7 +3035,7 @@ function openHelp(){
   );
 }
 
-const APP_VERSION = 'v34 · 26.11.2026';
+const APP_VERSION = 'v36 · 26.11.2026';
 
 const FEEDBACK_EMAIL = 'grinover@yandex.ru';
 function feedbackUrl(){
